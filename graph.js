@@ -3,340 +3,373 @@
 // vec2 class really simple
 class vec2 {
 
-	constructor(x, y) {
-		this.x = x;
-		this.y = y;
-	}
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        return this;
+    }
 
-	scaleBy(S) {
-		this.x *= S;
-		this.y *= S;
-	}
+    setxy(x, y) {
+        this.x = x;
+        this.y = y;
+        return this;
+    }
 
-	set(x, y) {
-		this.x = x;
-		this.y = y;
-	}
+    setv(vec) {
+        this.x = vec.x;
+        this.y = vec.y;
+        return this;
+    }
+
+    incBy(vec) {
+        this.x += vec.x;
+        this.y += vec.y;
+        return this;
+    }
+
+    decBy(vec) {
+        this.x -= vec.x;
+        this.y -= vec.y;
+        return this;
+    }
+
+    scaleBy(S) {
+        this.x *= S;
+        this.y *= S;
+        return this;
+    }
+
+    mulBy(vec) {
+        this.x *= vec.x;
+        this.y *= vec.y;
+        return this;
+    }
+
+    divBy(vec) {
+        this.x /= vec.x;
+        this.y /= vec.y;
+        return this;
+    }
+
+    clamp(lower, upper) {
+        this.x = this.x < lower.x ? lower.x : this.x > upper.x ? upper.x : this.x;
+        this.y = this.y < lower.y ? lower.y : this.y > upper.y ? upper.y : this.y;
+        return this;
+    }
+
+    static clone(vec) {
+        return new vec2(vec.x, vec.y);
+    }
 }
 
 // vector arithmatic
 const addv     = (vecA, vecB) => new vec2( vecA.x + vecB.x, vecA.y + vecB.y );
 const subv     = (vecA, vecB) => new vec2( vecA.x - vecB.x, vecA.y - vecB.y );
+const mulv     = (vecA, vecB) => new vec2( vecA.x * vecB.x, vecA.y * vecB.y );
+const divv     = (vecA, vecB) => new vec2( vecA.x / vecB.x, vecA.y / vecB.y );
+const negv     = (vec)        => new vec2( -vec.x, -vec.y );
 const scalev   = (vec, S)     => new vec2( S * vec.x, S * vec.y );
 const sqrDistv = (vecA, vecB) => ( vecA.x - vecB.x ) ** 2 + ( vecA.y - vecB.y ) ** 2;
 
 
-function drawPoint(point, ctx) {
-
-	ctx.strokeStyle = "#54f330";
-	ctx.fillStyle   = "#ffffff"
-
-	// draw circle on point
-	ctx.beginPath();
-	ctx.arc( point.x, point.y, rem/2, 0, 6.28 );
-	
-	ctx.fill();
-	ctx.stroke();
-}
-
 class Graph {
 
-	constructor() {
-
-		// get canvas and drawing context
-		this.canvas = document.getElementById("graph.js");
-		this.ctx    = canvas.getContext("2d");
-
-		// declare graph variables
-		this.canvasSize = new vec2(0, 0);
-		this.dpr = 0;
-		this.viewportCorners = [new vec2(-5, -5), new vec2(5, 5)];
-
-		get viewportBottomLeft() { return this.viewportCorners[0];                                   }
-		get viewportTopRight()   { return this.viewportCorners[1];                                   }
-		get viewportWidth()      { return this.viewportCorners[1].x - this.viewportCorners[0].x;     }
-		get viewportHeight()     { return this.viewportCorners[0].y - this.viewportCorners[1].y;     }
-		get viewportSize()       { return new vec2( this.viewportWidth, this.viewportHeight );       }
-		get originOffset()       { return scalev( addv( viewportTopRight, viewportBottomLeft ), 0.5) }
-
-		this.canvasWidth     = 0;
-		this.canvasHeight    = 0;
-		this.dpr             = 0;
-		this.viewportCorners = [-5, -5, 5, 5];
-		this.mouseclicked    = false;
-		this.movedInClick    = false;
-		this.xGridSpacing    = 1;
-		this.yGridSpacing    = 1;
-		this.zoomLevelX      = 0;
-		this.zoomLevelY      = 0;
-		this.gridLinesX      = 16;
-		this.gridLinesY      = 16;
-		this.rem             = parseInt(getComputedStyle(document.documentElement).fontSize);
-		this.mousePosX       = 0;
-		this.mousePosY       = 0;
-
-		// data variables
-		this.points     = [new vec2(-2.0, -0.5), new vec2(-0.8, 0.2), new vec2(0, -0.3), new vec2(0.6, 0.5), new vec2(2.0, 1.5)];
-		this.closePoint = -1;
-
-		// initial canvas resize & start draw loop
-		this.resize();
-		this.wheel(new WheelEvent(null));
-		this.draw();
-
-		// set graph to have 1:1 x scale and y scale
-		this.viewportCorners[1] = this.viewportCorners[0] * this.canvasHeight / this.canvasWidth;
-		this.viewportCorners[3] = this.viewportCorners[2] * this.canvasHeight / this.canvasWidth;
-		this.gridLinesY         = this.gridLinesX * this.canvasHeight / this.canvasWidth;
-
-		// functions to  translate from graph space to canvas space
-		this.graphToCanvasX      = graphX  => (graphX - (viewportCorners[2] + viewportCorners[0]) / 2) * canvasWidth  / (viewportCorners[2] - viewportCorners[0]) + canvasWidth  / 2;
-		this.graphToCanvasY      = graphY  => (graphY - (viewportCorners[1] + viewportCorners[3]) / 2) * canvasHeight / (viewportCorners[1] - viewportCorners[3]) + canvasHeight / 2;
-		this.canvasToGraphX      = canvasX => (canvasX - canvasWidth  / 2) * (viewportCorners[2] - viewportCorners[0]) / canvasWidth  + (viewportCorners[2] + viewportCorners[0]) / 2;
-		this.canvasToGraphY      = canvasY => (canvasY - canvasHeight / 2) * (viewportCorners[1] - viewportCorners[3]) / canvasHeight + (viewportCorners[1] + viewportCorners[3]) / 2;
-		this.graphToCanvasScaleX = graphX  => graphX * canvasWidth  / (viewportCorners[2] - viewportCorners[0]);
-		this.graphToCanvasScaleY = graphY  => graphY * canvasHeight / (viewportCorners[1] - viewportCorners[3]);
-		this.canvasToGraphScaleX = canvasX => canvasX * (viewportCorners[2] - viewportCorners[0]) / canvasWidth;
-		this.canvasToGraphScaleY = canvasY => canvasY * (viewportCorners[1] - viewportCorners[3]) / canvasHeight;
-
-		this.graphToCanvas = point => scalev( subv(point, this.originOffset), this.canvasSize )  / (viewportCorners[2] - viewportCorners[0]) + canvasWidth / 2;
-
-		// event listeners
-		window.addEventListener("resize",    resize);
-		canvas.addEventListener("mousemove", mousemove);
-		canvas.addEventListener("mousedown", mousedown);
-		canvas.addEventListener("mouseup",   mouseup);
-
-		// prevents page scrolling when mouse in canvas
-		canvas.onwheel = (e) => {e.preventDefault();};
-		canvas.addEventListener("wheel", wheel);
-	}
-
-	resize() {
-
-		// set canvas to have 1:1 canvas pixel to screen pixel ratio
-		this.dpr = window.devicePixelRatio || 1;
-		const rect = canvas.getBoundingClientRect();
-		this.canvasSize.set( rect.width * this.dpr, rect.height * this.dpr );
-
-		canvas.width  = this.canvasSize.x;
-		canvas.height = this.canvasSize.y;
-	}
-
-	function wheel(event) {
-
-		// zoom in and out on the graph
-		var centerX = canvasToGraphX( event.offsetX * dpr );
-		var centerY = canvasToGraphY( event.offsetY * dpr );
-
-		// move viewport corners towards or away from cursor
-		var viewportCornerDeltas = [viewportCorners[0] - centerX, viewportCorners[1] - centerY, viewportCorners[2] - centerX, viewportCorners[3] - centerY];
-		var scale   = 1 + event.deltaY / 1000;
-		viewportCorners = [centerX + viewportCornerDeltas[0] * scale, centerY + viewportCornerDeltas[1] * scale, centerX + viewportCornerDeltas[2] * scale, centerY + viewportCornerDeltas[3] * scale];
-
-		// calculate which gridlines to draw
-		var xLength = viewportCorners[2] - viewportCorners[0];
-		var yLength = viewportCorners[3] - viewportCorners[1];
-
-		// this is awful
-		if(xLength > gridLinesX*xGridSpacing) {
-			xGridSpacing *= ((zoomLevelX%3)+3)%3 == 1 ? 2.5 : 2; // weird modulo fixes negative result for negative numbers
-			++zoomLevelX;
-		}
-		else if(xLength < (((zoomLevelX%3)+3)%3 == 2 ? gridLinesX/2.5 : gridLinesX/2)*xGridSpacing) {
-			xGridSpacing /= ((zoomLevelX%3)+3)%3 == 2 ? 2.5 : 2;
-			--zoomLevelX;
-		}
-		if(yLength > gridLinesY*yGridSpacing) {
-			yGridSpacing *= ((zoomLevelY%3)+3)%3 == 1 ? 2.5 : 2;
-			++zoomLevelY;
-		}
-		else if(yLength < (((zoomLevelY%3)+3)%3 == 2 ? gridLinesY/2.5 : gridLinesY/2)*yGridSpacing) {
-			yGridSpacing /= ((zoomLevelY%3)+3)%3 == 2 ? 2.5 : 2;
-			--zoomLevelY;
-		}
-	}
-
-	function mousedown(event) {
-
-		mousemove(event);
-
-		// set mouseclicked flag
-		mouseclicked = true;
-	}
-
-	function mousemove(event) {
-
-		// get mousepos for display at top of graph and close data point
-		mousePosX = canvasToGraphX(event.offsetX*dpr);
-		mousePosY = canvasToGraphY(event.offsetY*dpr);
-
-		// handle panning the graph
-		if(mouseclicked && closeDataPoint == -1) {
-
-			// set cursor to grabbing
-			canvas.style.cursor = "grabbing";
-
-			// set moved in click flag
-			movedInClick = true;
-
-			// shift corners of viewport
-			viewportCorners[0] -= canvasToGraphScaleX(event.movementX);
-			viewportCorners[2] -= canvasToGraphScaleX(event.movementX);
-			viewportCorners[1] -= canvasToGraphScaleY(event.movementY);
-			viewportCorners[3] -= canvasToGraphScaleY(event.movementY);
-		}
-
-		// handle moving close data point
-		else if(mouseclicked) {
-
-			// set moved in click flag
-			movedInClick = true;
-
-			// move close data point to under cursor
-			dataPoints[closeDataPoint].x = mousePosX;
-			dataPoints[closeDataPoint].y = mousePosY;
-		}
-
-		else {
-
-			// update close data point
-			closeDataPoint = getCloseDataPoint(mousePosX, mousePosY);
-
-			// if mouse is close to a point then change cursor to movey
-			canvas.style.cursor = closeDataPoint == -1 ? "auto" : "move";
-		}
-	}
-
-	function mouseup(event) {
-
-		// handle adding a point on click but only if the mouse didn't more during the click
-		if(!movedInClick) {
-
-			if(closeDataPoint != -1) {
-
-				dataPoints.splice(closeDataPoint, 1);
-			}
-			else {
-				dataPoints.push(new Point(mousePosX, mousePosY));
-			}
-		}
-
-		// set mouse flags
-		mouseclicked = false;
-		movedInClick = false;
-
-		// call mousemove to update cursor
-		mousemove(event);
-	}
-
-	function draw() {
-
-		// cler canvas
-		ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-
-		// get origin x and y pos limited to viewport extents
-		var originX = 0 <= viewportCorners[0] ? viewportCorners[0] : (0 >= viewportCorners[2] ? viewportCorners[2] : 0);
-		var originY = 0 <= viewportCorners[1] ? viewportCorners[1] : (0 >= viewportCorners[3] ? viewportCorners[3] : 0);
-		originX = graphToCanvasX(originX);
-		originY = graphToCanvasY(originY);
-
-		// draw the 2 axes
-		ctx.lineWidth = 3;
-		ctx.strokeStyle = "black";
-
-		ctx.beginPath();
-		ctx.moveTo(          0, originY);
-		ctx.lineTo(canvasWidth, originY);
-		ctx.stroke();
-		ctx.moveTo(originX, 0);
-		ctx.lineTo(originX, canvasHeight);
-		ctx.stroke();
-
-		// change strokestyle for gridlines
-		ctx.lineWidth   = 1;
-		ctx.strokeStyle = "rgba(0, 0, 0, 0.3)";
-		ctx.fillStyle   = "black";
-
-		// set font for numbers
-		ctx.font = "1rem Comfortaa";
-
-		// start point for drawing gridlines
-		var xStart = Math.floor(viewportCorners[0]/xGridSpacing - 1) * xGridSpacing;
-		var yStart = Math.floor(viewportCorners[1]/yGridSpacing - 1) * yGridSpacing;
-
-		// get precision for numbers - use log10 of grid spacing to find number of sig figs needed
-		var sigFigs = Math.max(-parseInt(Math.log10(xGridSpacing))+1, 0);
-		console.log(xGridSpacing);
-
-		// gridlines in x and y
-		for(var x=xStart; x<viewportCorners[2]; x+=xGridSpacing) {
-
-			x = Math.abs(x) < 1e-10 ? 0.0 : x;
-
-			var lineAcross = graphToCanvasX(x);
-			ctx.beginPath();
-			ctx.moveTo(lineAcross,            0);
-			ctx.lineTo(lineAcross, canvasHeight);
-			ctx.stroke();
-
-			// if number is offscreen shift it onscreen
-			var textHeight = rem;
-
-			// draw numbers
-			ctx.fillText(x.toFixed(sigFigs), lineAcross+4, (originY-8-textHeight < 0 ? textHeight+4 : originY-4));
-		}
-
-		for(var y=yStart; y<viewportCorners[3]; y += yGridSpacing) {
-			
-			y = Math.abs(y)<1e-10 ? 0.0 : y;
-
-			var lineHeight = graphToCanvasY(y);
-			ctx.beginPath();
-			ctx.moveTo(          0, lineHeight);
-			ctx.lineTo(canvasWidth, lineHeight);
-			ctx.stroke();
-
-			// if number is offscreen shift it onscreen
-			var textWidth = ctx.measureText(y.toFixed(sigFigs)).width;
-
-			// draw number
-			ctx.fillText(y.toFixed(sigFigs), (originX+8+textWidth > canvasWidth ? canvasWidth-4-textWidth : originX+4), lineHeight-4);
-		}
-
-		// set style for curve
-		ctx.strokeStyle = "#54F330";
-		ctx.lineWidth   = 2;
-
-		// draw mouse position x and y in top corner
-		ctx.font = "1.3rem Comfortaa";
-		var text = mousePosX.toFixed(sigFigs) + ", " + mousePosY.toFixed(sigFigs);
-		var textWidth = ctx.measureText(text).width;
-
-		// draw white box behind
-		ctx.fillStyle = "white";
-		ctx.fillRect(canvasWidth-8-textWidth, 0, 8+textWidth, rem*1.3+8);
-
-		// draw numbers
-		ctx.fillStyle = "black";
-		ctx.fillText(text, canvasWidth-4-textWidth, rem*1.3+4);
-
-		// set style for data points
-		ctx.fillStyle = "white";
-		ctx.lineWidth = 3;
-
-		// draw data points
-		for(var point of dataPoints) {
-
-			drawPoint( graphToCanvas(point), ctx);
-		}
-		
-		requestAnimationFrame(draw);
-	}
-
-	// get index of close dataPoint in the dataPoints array or undefined if none are close
-	function getCloseDataPoint(mousePos) {
-
-		return this.points.find( point => sqrDistv(mousePos, point) < rem*rem/4 );
-	}
+    constructor() {
+
+        // get canvas and drawing context
+        this.canvas = document.getElementById("graph.js");
+        this.ctx    = this.canvas.getContext("2d");
+
+        // declare properties
+        this.canvasSize         = new vec2(0, 0);
+        this.dpr                = 0;
+        this.mousePos           = new vec2(0, 0);
+        this.mouseMove          = new vec2(0, 0);
+        this.canvasToGraphScale = new vec2(1, -1).scaleBy( 0.01 ); // 2d scale factor that converts from canvas space to graph space
+        this.originOffset       = new vec2(0, 0); // offset of the origin from top corner of canvas in graph space
+        this.rem                = parseInt( getComputedStyle(document.documentElement).fontSize );
+
+        // data variables
+        this.points             = [ new vec2(-2.0, -0.5), new vec2(-0.8, 0.2), new vec2(0, -0.3), new vec2(0.6, 0.5), new vec2(2.0, 1.5) ];
+        this.closePoint         = undefined;
+
+        // user-changeable drawing functions
+        this.pointDrawingFunction = graphjsDefaultDrawPoint;
+
+        // grid lines variables
+        this.xGridSpacing    = 1;
+        this.yGridSpacing    = 1;
+        this.zoomLevelX      = 0;
+        this.zoomLevelY      = 0;
+        this.gridLinesX      = 16;
+        this.gridLinesY      = 16;
+
+        // functions to  translate from graph space to canvas space
+        this.canvasToGraph = point => point.mulBy( this.canvasToGraphScale ).incBy( this.originOffset );
+        this.graphToCanvas = point => point.decBy( this.originOffset ).divBy( this.canvasToGraphScale );
+
+        // event listeners
+        window.addEventListener(      "resize",    event => this.resize(event)    );
+        this.canvas.addEventListener( "wheel",     event => this.wheel(event)     );
+        this.canvas.addEventListener( "mouseup",   event => this.mouseup(event)   );
+        this.canvas.addEventListener( "mousemove", event => this.mousemove(event) );
+        this.canvas.addEventListener( "mousedown", event => this.mousedown(event) );
+
+        // initial canvas resize & start draw loop
+        this.resize();
+        this.wheel( new WheelEvent(null) );
+        this.draw();
+    }
+
+    resize() {
+
+        // set canvas to have 1:1 canvas pixel to screen pixel ratio
+        this.dpr = window.devicePixelRatio || 1;
+        const rect = this.canvas.getBoundingClientRect();
+        this.canvasSize.setxy( rect.width * this.dpr, rect.height * this.dpr );
+
+        this.canvas.width  = this.canvasSize.x;
+        this.canvas.height = this.canvasSize.y;
+    }
+
+    wheel(event) {
+
+        // zoom in and out on the graph
+
+        event.preventDefault();
+
+        const zoomAmount = event.deltaY / 1000;
+
+        // offset origin by a bit to keep mouse in same place on graph
+        this.originOffset.decBy( new vec2( event.offsetX, event.offsetY ).scaleBy( this.dpr * zoomAmount )
+                                                                         .mulBy( this.canvasToGraphScale ) );
+        // change scale to zoom
+        this.canvasToGraphScale.scaleBy( 1 + zoomAmount );
+
+
+        // calculate which gridlines to draw
+        const viewportSize = mulv( this.canvasSize, this.canvasToGraphScale );
+        const xLength = viewportSize.x;
+        const yLength = viewportSize.y;
+
+        // this is awful
+        if(xLength > this.gridLinesX * this.xGridSpacing) {
+            this.xGridSpacing *= ((this.zoomLevelX%3)+3)%3 == 1 ? 2.5 : 2; // weird modulo fixes negative result for negative numbers
+            ++this.zoomLevelX;
+        }
+        else if(xLength < (((this.zoomLevelX%3)+3)%3 == 2 ? this.gridLinesX/2.5 : this.gridLinesX/2) * this.xGridSpacing) {
+            this.xGridSpacing /= ((this.zoomLevelX%3)+3)%3 == 2 ? 2.5 : 2;
+            --this.zoomLevelX;
+        }
+        if(yLength > this.gridLinesY * this.yGridSpacing) {
+            this.yGridSpacing *= ((this.zoomLevelY%3)+3)%3 == 1 ? 2.5 : 2;
+            ++this.zoomLevelY;
+        }
+        else if(yLength < (((this.zoomLevelY%3)+3)%3 == 2 ? this.gridLinesY/2.5 : this.gridLinesY/2) * this.yGridSpacing) {
+            this.yGridSpacing /= ((this.zoomLevelY%3)+3)%3 == 2 ? 2.5 : 2;
+            --this.zoomLevelY;
+        }
+    }
+
+    mousedown(event) {
+
+        // call mousemove to update cursor
+        this.mousemove(event);
+
+        // set mouseclicked flag
+        this.mouseClicked = true;
+    }
+
+    mousemove(event) {
+
+        // get mousePos for display at top of graph and close data point, and mouseMove for panning graph
+        this.canvasToGraph( this.mousePos.setxy( event.offsetX, event.offsetY ).scaleBy( this.dpr ) );
+        this.mouseMove.setxy( event.movementX, event.movementY ).mulBy( this.canvasToGraphScale );
+
+        // cases where the mouse is clicked
+        if( this.mouseClicked ) {
+
+            // set moved in click flag
+            this.movedInClick = true;
+
+            // move close data point to under cursor if there is one
+            if( this.closePoint ) this.closePoint.setv( this.mousePos );
+
+            // otherwise handle panning the graph
+            else {
+
+                // set cursor to little hand grabbing
+                this.canvas.style.cursor = "grabbing";
+
+                // shift origin to pan graph
+                this.originOffset.decBy( this.mouseMove );
+            }
+        }
+
+        // otherwise handle case where mouse isnt clicked
+        else {
+
+            // update close point
+            this.closePoint = this.points.find( point => sqrDistv( this.graphToCanvas( vec2.clone( this.mousePos ) ), 
+                                                                   this.graphToCanvas( vec2.clone( point         ) ) ) < this.rem**2 / 4 );
+
+            // if mouse is close to a point then change cursor to movey
+            this.canvas.style.cursor = this.closePoint ? "move" : "auto";
+        }
+    }
+
+    mouseup(event) {
+
+        // handle adding/removing a point on click but only if the mouse didn't more during the click
+        if( !this.movedInClick ) {
+
+            // if mouse is over an existing point then remove it
+            if( this.closePoint ) 
+                this.points = this.points.filter( point => point !== this.closePoint );
+
+            // otherwise add another point at current mouse position
+            else this.points.push( vec2.clone( this.mousePos ) );
+        }
+
+        // set mouse flags
+        this.mouseClicked = this.movedInClick = false;
+
+        // call mousemove to update cursor
+        this.mousemove(event);
+    }
+
+    draw() {
+
+        // clear canvas
+        this.ctx.clearRect(0, 0, this.canvasSize.x, this.canvasSize.y);
+
+        // get origin position in canvas space, limited to canvas edges
+        const originOnCanvas = this.graphToCanvas( new vec2(0,0) ).clamp( new vec2(0,0), this.canvasSize );
+
+        // draw the graph elements
+        this.drawAxes( originOnCanvas );
+        this.drawGridlines( originOnCanvas );
+        this.drawCurve();
+        this.drawPoints();
+        this.drawMousePosition();
+        
+        requestAnimationFrame( () => this.draw() );
+    }
+
+    drawAxes(origin) {
+
+        // draw the 2 axes
+
+        this.ctx.lineWidth = 3;
+        this.ctx.strokeStyle = "black";
+
+        this.ctx.beginPath();
+
+        this.ctx.moveTo(                 0, origin.y );
+        this.ctx.lineTo( this.canvasSize.x, origin.y );
+
+        this.ctx.moveTo( origin.x,                 0 );
+        this.ctx.lineTo( origin.x, this.canvasSize.y );
+
+        this.ctx.stroke();
+    }
+
+    drawGridlines(origin) {
+
+        // change strokestyle for gridlines
+        this.ctx.lineWidth   = 1;
+        this.ctx.strokeStyle = "rgba(0, 0, 0, 0.3)";
+        this.ctx.fillStyle   = "black";
+
+        // set font for numbers
+        this.ctx.font = "1rem Comfortaa";
+
+        // start point for drawing gridlines
+        const xStart = Math.floor( this.graphToCanvas(new vec2(0,0)).x / this.xGridSpacing - 1) * this.xGridSpacing;
+        const yStart = Math.floor( this.graphToCanvas(new vec2(0,0)).y / this.yGridSpacing - 1) * this.yGridSpacing;
+
+        // get precision for numbers - use log10 of grid spacing to find number of sig figs needed
+        const sigFigs = Math.max( 1 - parseInt( Math.log10(this.xGridSpacing) ), 0 );
+
+        // gridlines in x and y
+        for(var x=xStart; x < this.canvasToGraph(this.canvasSize).x; x += this.xGridSpacing) {
+
+            x = Math.abs(x) < 1e-10 ? 0.0 : x;
+
+            const lineAcross = this.graphToCanvas(new vec2(x,0)).x;
+            this.ctx.beginPath();
+            this.ctx.moveTo(lineAcross,                 0);
+            this.ctx.lineTo(lineAcross, this.canvasSize.y);
+            this.ctx.stroke();
+
+            const textHeight = this.rem;
+
+            // draw numbers
+            this.ctx.fillText( x.toFixed(sigFigs), lineAcross+4, (origin.y-8-textHeight < 0 ? textHeight+4 : originY-4) );
+        }
+
+        for(var y=yStart; y<this.canvasToGraph(this.canvasSize).y; y += this.yGridSpacing) {
+         
+            y = Math.abs(y)<1e-10 ? 0.0 : y;
+
+            const lineHeight = this.graphToCanvas(new vec2(0,y)).y;
+            this.ctx.beginPath();
+            this.ctx.moveTo(                0, lineHeight);
+            this.ctx.lineTo(this.canvasSize.y, lineHeight);
+            this.ctx.stroke();
+
+            // if number is offscreen shift it onscreen
+            const textWidth = this.ctx.measureText( y.toFixed(sigFigs) ).width;
+
+            // draw number
+            this.ctx.fillText( y.toFixed(sigFigs), (origin.x+8+textWidth > this.canvasSize.x ? this.canvasSize.x-4-textWidth : origin.x+4), lineHeight-4 );
+        }
+    }
+
+    drawCurve() {
+
+    }
+
+    drawPoints() {
+
+        // first map points to canvas space then call pointDrawingFunction on them
+        const pointsOnCanvas = this.points.map( point => this.graphToCanvas( vec2.clone( point ) ) );
+
+        pointsOnCanvas.forEach( point => this.pointDrawingFunction( point, this.ctx ) );
+    }
+
+    drawMousePosition() {
+
+        this.ctx.font = "1.3rem Roboto Mono";
+
+        // get text from mousePos
+        const text = this.mousePos.x.toFixed(3) + ", " + this.mousePos.y.toFixed(3);
+        const textWidth = this.ctx.measureText(text).width;
+
+        // draw white box behind
+        this.ctx.fillStyle = "white";
+        this.ctx.fillRect(this.canvasSize.x-8-textWidth, 0, 8+textWidth, this.rem*1.3 + 8);
+
+        // draw numbers
+        this.ctx.fillStyle = "black";
+        this.ctx.fillText(text, this.canvasSize.x-4-textWidth, this.rem*1.3 + 4);
+    }
 }
+
+
+// default point drawing function draws a green circle
+function graphjsDefaultDrawPoint(point, ctx) {
+
+    // set style
+    ctx.strokeStyle = "#54f330";
+    ctx.fillStyle   = "#ffffff"
+    ctx.lineWidth = 3;
+
+    ctx.beginPath();
+    ctx.arc( point.x, point.y, 8, 0, 6.28 );
+    ctx.fill();
+    ctx.stroke();
+}
+
+
+const graphjs = new Graph();
