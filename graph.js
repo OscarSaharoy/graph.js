@@ -2,10 +2,10 @@
 
 class Graph {
 
-    constructor() {
+    constructor(graphID) {
 
         // get canvas and drawing context
-        this.canvas = document.getElementById("graph.js");
+        this.canvas = document.getElementById(graphID);
         this.ctx    = this.canvas.getContext("2d");
 
         // declare properties
@@ -318,6 +318,11 @@ class Graph {
 
         this.ctx.fillText( text, textX, textY );
     }
+
+    addPoint(point) {
+
+        this.points.push( point );
+    }
 }
 
 
@@ -401,6 +406,3 @@ function graphjsFormatNumber(x) {
 
     return text;
 }
-
-
-const graphjs = new Graph();
