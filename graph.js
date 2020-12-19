@@ -43,7 +43,6 @@ class Graph {
 
         // initial canvas resize & start draw loop
         this.resize();
-        this.draw();
     }
 
     resize() {
@@ -55,6 +54,9 @@ class Graph {
 
         this.canvas.width  = this.canvasSize.x;
         this.canvas.height = this.canvasSize.y;
+
+        // redraw canvas with new sizing
+        this.redraw();
     }
 
     wheel(event) {
@@ -70,6 +72,8 @@ class Graph {
                                                                          .mulBy( this.canvasToGraphScale ) );
         // change scale to zoom
         this.canvasToGraphScale.scaleBy( 1 + zoomAmount );
+
+        this.redraw();
     }
 
     mousedown(event) {
@@ -83,6 +87,7 @@ class Graph {
         // get mousePos for display at top of graph and close data point, and mouseMove for panning graph
         this.canvasToGraph( this.mousePos.setxy( event.offsetX, event.offsetY ).scaleBy( this.dpr ) );
         this.mouseMove.setxy( event.movementX, event.movementY ).mulBy( this.canvasToGraphScale );
+        this.drawMousePosition();
 
         // cases where the mouse is clicked
         if( this.mouseClicked ) {
@@ -102,6 +107,8 @@ class Graph {
                 // shift origin to pan graph
                 this.originOffset.incBy( this.mouseMove );
             }
+
+            this.redraw();
         }
 
         // otherwise handle case where mouse isnt clicked
@@ -127,13 +134,15 @@ class Graph {
 
             // otherwise add another point at current mouse position
             else this.points.push( vec2.clone( this.mousePos ) );
+
+            this.redraw();    
         }
 
         // set mouse flags
         this.mouseClicked = this.movedInClick = false;
 
-        // update cursor
-        this.canvas.style.cursor = this.closePoint ? "move" : "auto";
+        // update cursor and closePoint
+        this.mousemove(event)
     }
 
     mouseleave(event) {
@@ -142,7 +151,7 @@ class Graph {
         this.mouseup(event);
     }
 
-    draw() {
+    redraw() {
 
         // clear canvas
         this.ctx.clearRect(0, 0, this.canvasSize.x, this.canvasSize.y);
@@ -165,7 +174,8 @@ class Graph {
         this.drawLabels(gridlinePositions);
         this.drawMousePosition();
         
-        requestAnimationFrame( () => this.draw() );
+        // continue draw loop
+        // requestAnimationFrame( () => this.redraw() );
     }
 
     getGridlinePositions() {
@@ -174,18 +184,21 @@ class Graph {
         const gridlines = { x: [], y: [] };
 
         // size of the graph in graph space
-        const graphSize        = mulv( this.canvasSize, this.canvasToGraphScale ).abs();
+        const graphSize = mulv( this.canvasSize, this.canvasToGraphScale ).abs();
 
         // calculate space between the gridlines in graph units
-        const gridlineSpacingX = Math.pow(10, Math.floor( Math.log10(graphSize.x) ) );
-        const gridlineSpacingY = Math.pow(10, Math.floor( Math.log10(graphSize.y) ) );
+        var gridlineSpacingX = Math.pow(10, Math.floor( Math.log10(graphSize.x) ) );
+        var gridlineSpacingY = Math.pow(10, Math.floor( Math.log10(graphSize.y) ) );
 
-        // const gridlineSpacingX = Math.pow(5, Math.floor( Math.log10(graphSize.x) ) );
-        // const gridlineSpacingY = Math.pow(5, Math.floor( Math.log10(graphSize.y) ) );
+        // adjust the gridline spacing to get a nice number of gridlines
+        if      ( graphSize.x / gridlineSpacingX < 2.5 ) gridlineSpacingX /= 5;
+        else if ( graphSize.x / gridlineSpacingX < 6   ) gridlineSpacingX /= 2;
+        if      ( graphSize.y / gridlineSpacingY < 2.5 ) gridlineSpacingY /= 5;
+        else if ( graphSize.y / gridlineSpacingY < 6   ) gridlineSpacingY /= 2;
 
         // calculate positions of the most negative gridline in graph space
-        const firstGridlineX   = Math.floor( - this.originOffset.x                / gridlineSpacingX ) * gridlineSpacingX;
-        const firstGridlineY   = Math.floor( -(this.originOffset.y + graphSize.y) / gridlineSpacingY ) * gridlineSpacingY;
+        const firstGridlineX = Math.floor( - this.originOffset.x                / gridlineSpacingX ) * gridlineSpacingX;
+        const firstGridlineY = Math.floor( -(this.originOffset.y + graphSize.y) / gridlineSpacingY ) * gridlineSpacingY;
 
         // keep adding grid lines at a spacing of gridlineSpacing until the whole graph is covered
         for(var x = firstGridlineX; x < firstGridlineX + graphSize.x + gridlineSpacingX; x += gridlineSpacingX)
@@ -199,7 +212,7 @@ class Graph {
 
     drawAxes() {
 
-        // draw the 2 axes
+        // draw the x and y axes
 
         this.ctx.lineWidth   = 3;
         this.ctx.strokeStyle = "black";
@@ -245,12 +258,12 @@ class Graph {
         this.ctx.font = "1.3rem Roboto Mono";
 
         // get text from mousePos
-        const text = this.mousePos.x.toFixed(3) + ", " + this.mousePos.y.toFixed(3);
+        const text = this.mousePos.x.toPrecision(3) + ", " + this.mousePos.y.toPrecision(3);
         const textWidth = this.ctx.measureText(text).width;
 
         // draw white box behind
         this.ctx.fillStyle = "white";
-        this.ctx.fillRect(this.canvasSize.x-8-textWidth, 0, 8+textWidth, this.rem*1.3 + 8);
+        this.ctx.fillRect(this.canvasSize.x-8-textWidth*1.5, 0, 8+textWidth*1.5, this.rem*1.3 + 8);
 
         // draw numbers
         this.ctx.fillStyle = "black";
@@ -282,8 +295,8 @@ class Graph {
         const canvasY = this.originFixedInCanvas.y;
 
         // draw number
+        const text       = graphjsFormatNumber(graphX);
         const textHeight = this.rem;
-        const text       = graphX.toFixed(1);
         const textX      = canvasX + textHeight / 2;
         const textY      = canvasY-textHeight*2 < 0 ? textHeight*1.5 : canvasY-textHeight/2;
 
@@ -297,7 +310,7 @@ class Graph {
         const canvasX = this.originFixedInCanvas.x;
 
         // draw number
-        const text       = graphY.toFixed(1);
+        const text       = graphjsFormatNumber(graphY);
         const textHeight = this.rem;
         const textWidth  = this.ctx.measureText( text ).width;
         const textX      = canvasX+textHeight+textWidth > this.canvasSize.x ? this.canvasSize.x-textHeight/2-textWidth : canvasX+textHeight/2;
@@ -322,6 +335,7 @@ function graphjsDefaultDrawPoint(point, ctx) {
     ctx.stroke();
 }
 
+// default curve drawing function
 function graphjsDefaultDrawCurve(points, ctx) {
 
     // set style
@@ -332,6 +346,60 @@ function graphjsDefaultDrawCurve(points, ctx) {
     ctx.moveTo( points[0].x, points[0].y );
     points.forEach( point => ctx.lineTo( point.x, point.y ) );
     ctx.stroke();
+}
+
+// number formatting function
+function graphjsFormatNumber(x) {
+
+    // if x is basically 0 then just return that
+    if( Math.abs(x) < 1e-10 ) return "0";
+    
+    // use x.toString unless number is very small or very big then use toExponential
+    var text = x.toString();
+    if( Math.abs(x) > 10000 || Math.abs(x) < 0.001 ) text = x.toExponential();
+
+    // fix numbers like 57.5699999999995e+12
+    if( text[14] == '9' ) {
+
+        var toKeep = 13;
+        while( text[toKeep] == '9' || text[toKeep] == '.' ) {
+            
+            --toKeep;
+
+            // when we reach the last numerical character break
+            if( toKeep == 0 || toKeep == 1 && x < 0 ) break;
+        }
+
+        var fixed = text.slice(0, toKeep);
+        fixed += parseInt( text[toKeep] ) + 1; // add on the last number we want but add 1 to make up for all the nines
+
+        const suffix = text.match(/e(\+|\-)\d+/);
+        if(suffix) fixed += suffix[0];
+
+        return fixed;
+    }
+
+    // fix numbers like 5.560000000001e-5
+    if( text[14] == '0' ) {
+
+        var toKeep = 13;
+        while( text[toKeep] == '0' || text[toKeep] == '.' ) {
+            
+            --toKeep;
+
+            // when we reach the last numerical character break
+            if( toKeep == 0 || toKeep == 1 && x < 0 ) break;
+        }
+
+        var fixed = text.slice(0, toKeep+1);
+
+        const suffix = text.match(/e(\+|\-)\d+/);
+        if(suffix) fixed += suffix[0];
+
+        return fixed;
+    }
+
+    return text;
 }
 
 
