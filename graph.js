@@ -27,11 +27,11 @@ class Graph {
         this.curveDrawingFunction = graphjsDefaultDrawCurve;
 
         // functions to  translate from graph space to canvas space
-        this.canvasToGraph  = point  => point.mulBy( this.canvasToGraphScale ).incBy( this.originOffset );
-        this.graphToCanvas  = point  => point.decBy( this.originOffset ).divBy( this.canvasToGraphScale );
+        this.canvasToGraph  = point  => point.mulBy( this.canvasToGraphScale ).decBy( this.originOffset );
+        this.graphToCanvas  = point  => point.incBy( this.originOffset ).divBy( this.canvasToGraphScale );
 
-        this.graphToCanvasX = graphX => (graphX - this.originOffset.x) / this.canvasToGraphScale.x;
-        this.graphToCanvasY = graphY => (graphY - this.originOffset.y) / this.canvasToGraphScale.y;
+        this.graphToCanvasX = graphX => (graphX + this.originOffset.x) / this.canvasToGraphScale.x;
+        this.graphToCanvasY = graphY => (graphY + this.originOffset.y) / this.canvasToGraphScale.y;
 
         // event listeners
         window.addEventListener(      "resize",     event => this.resize(event)    );
@@ -66,7 +66,7 @@ class Graph {
         const zoomAmount = event.deltaY / 1000;
 
         // offset origin by a bit to keep mouse in same place on graph
-        this.originOffset.decBy( new vec2( event.offsetX, event.offsetY ).scaleBy( this.dpr * zoomAmount )
+        this.originOffset.incBy( new vec2( event.offsetX, event.offsetY ).scaleBy( this.dpr * zoomAmount )
                                                                          .mulBy( this.canvasToGraphScale ) );
         // change scale to zoom
         this.canvasToGraphScale.scaleBy( 1 + zoomAmount );
@@ -100,7 +100,7 @@ class Graph {
                 this.canvas.style.cursor = "grabbing";
 
                 // shift origin to pan graph
-                this.originOffset.decBy( this.mouseMove );
+                this.originOffset.incBy( this.mouseMove );
             }
         }
 
@@ -149,7 +149,7 @@ class Graph {
 
         // set origin position fixed inside the canvas
         this.originFixedInCanvas.setv( 
-            negv( this.originOffset ).divBy( this.canvasToGraphScale ).clamp( new vec2(0, 0), this.canvasSize ) );
+            divv( this.originOffset, this.canvasToGraphScale ).clamp( new vec2(0, 0), this.canvasSize ) );
 
         // get positions of gridlines on graph
         const gridlinePositions = this.getGridlinePositions();
@@ -170,15 +170,28 @@ class Graph {
 
     getGridlinePositions() {
 
-        const gridlines = {x: [], y: []};
+        // object to hold the gridlines in x and y directions
+        const gridlines = { x: [], y: [] };
 
-        const viewportSize    = mulv( this.canvasSize, this.canvasToGraphScale ).abs();
-        const gridlineSpacing = divv( viewportSize, new vec2(5, 5) );
+        // size of the graph in graph space
+        const graphSize        = mulv( this.canvasSize, this.canvasToGraphScale ).abs();
 
-        for(var x=-viewportSize.x/2; x<viewportSize.x/2+1e-4; x+=gridlineSpacing.x)
+        // calculate space between the gridlines in graph units
+        const gridlineSpacingX = Math.pow(10, Math.floor( Math.log10(graphSize.x) ) );
+        const gridlineSpacingY = Math.pow(10, Math.floor( Math.log10(graphSize.y) ) );
+
+        // const gridlineSpacingX = Math.pow(5, Math.floor( Math.log10(graphSize.x) ) );
+        // const gridlineSpacingY = Math.pow(5, Math.floor( Math.log10(graphSize.y) ) );
+
+        // calculate positions of the most negative gridline in graph space
+        const firstGridlineX   = Math.floor( - this.originOffset.x                / gridlineSpacingX ) * gridlineSpacingX;
+        const firstGridlineY   = Math.floor( -(this.originOffset.y + graphSize.y) / gridlineSpacingY ) * gridlineSpacingY;
+
+        // keep adding grid lines at a spacing of gridlineSpacing until the whole graph is covered
+        for(var x = firstGridlineX; x < firstGridlineX + graphSize.x + gridlineSpacingX; x += gridlineSpacingX)
             gridlines.x.push(x);
 
-        for(var y=-viewportSize.y/2; y<viewportSize.y/2+1e-4; y+=gridlineSpacing.y)
+        for(var y = firstGridlineY; y < firstGridlineY + graphSize.y + gridlineSpacingY; y += gridlineSpacingY)
             gridlines.y.push(y);
 
         return gridlines;
