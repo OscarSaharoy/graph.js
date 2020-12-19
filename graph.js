@@ -9,18 +9,18 @@ class Graph {
         this.ctx    = this.canvas.getContext("2d");
 
         // declare properties
-        this.canvasSize          = new vec2(0, 0);
-        this.canvasToGraphScale  = new vec2(0.01, -0.01); // 2d scale factor that converts from canvas space to graph space
-        this.originOffset        = new vec2(0, 0); // offset of the origin from top corner of canvas in graph space
-        this.originFixedInCanvas = new vec2(0, 0);
-        this.mousePos            = new vec2(0, 0);
-        this.mouseMove           = new vec2(0, 0);
-        this.dpr                 = 0;
-        this.rem                 = parseInt( getComputedStyle(document.documentElement).fontSize );
+        this.canvasSize           = new vec2(0, 0);
+        this.canvasToGraphScale   = new vec2(0.01, -0.01); // 2d scale factor that converts from canvas space to graph space
+        this.originOffset         = new vec2(0, 0); // offset of the origin from top corner of canvas in graph space
+        this.originFixedInCanvas  = new vec2(0, 0);
+        this.mousePos             = new vec2(0, 0);
+        this.mouseMove            = new vec2(0, 0);
+        this.dpr                  = 0;
+        this.rem                  = parseInt( getComputedStyle(document.documentElement).fontSize );
 
         // data variables
-        this.points              = [ new vec2(-2.0, -0.5), new vec2(-0.8, 0.2), new vec2(0, -0.3), new vec2(0.6, 0.5), new vec2(2.0, 1.5) ];
-        this.closePoint          = undefined;
+        this.points               = [];
+        this.closePoint           = undefined;
 
         // user-changeable drawing functions
         this.pointDrawingFunction = graphjsDefaultDrawPoint;
@@ -322,6 +322,25 @@ class Graph {
     addPoint(point) {
 
         this.points.push( point );
+        this.redraw();
+    }
+
+    addPoints(points) {
+
+        points.forEach( point => this.points.push(point) );
+        this.redraw();
+    }
+
+    removePoint(point) {
+
+        this.points = this.points.filter( x => x != point );
+        this.redraw();
+    }
+
+    clearPoints() {
+
+        this.points = [];
+        this.redraw();
     }
 }
 
@@ -342,6 +361,8 @@ function graphjsDefaultDrawPoint(point, ctx) {
 
 // default curve drawing function
 function graphjsDefaultDrawCurve(points, ctx) {
+
+    if( !points.length ) return;
 
     // set style
     ctx.strokeStyle = "#54f330";
