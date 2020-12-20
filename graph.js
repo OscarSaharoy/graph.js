@@ -39,10 +39,16 @@ class Graph {
         this.canvas.addEventListener( "mouseup",    event => this.mouseup(event)   );
         this.canvas.addEventListener( "mousemove",  event => this.mousemove(event) );
         this.canvas.addEventListener( "mousedown",  event => this.mousedown(event) );
-        this.canvas.addEventListener( "mouseleave", event => this.mouseleave(event) );
+        this.canvas.addEventListener( "mouseleave", event => this.mouseleave(event));
+        // this.canvas.addEventListener( "touchend",   event => this.mouseup(event.touches[0])   );
+        // this.canvas.addEventListener( "touchmove",  event => this.mousemove(event.touches[0]) );
+        // this.canvas.addEventListener( "touchstart", event => this.mousedown(event.touches[0]) );
+        // this.canvas.addEventListener( "mouseleave", event => this.mouseleave(event.touches[0]));
 
-        // initial canvas resize & start draw loop
+        // initial canvas resize, center canvas & draw
         this.resize();
+        this.setCentre( new vec2(0, 0) );
+        this.redraw();
     }
 
     resize() {
@@ -319,6 +325,8 @@ class Graph {
         this.ctx.fillText( text, textX, textY );
     }
 
+    // public functions
+
     addPoint(point) {
 
         this.points.push( point );
@@ -340,6 +348,29 @@ class Graph {
     clearPoints() {
 
         this.points = [];
+        this.redraw();
+    }
+
+    setCentre(point) {
+
+        // set the centre of the graph to be point
+        this.originOffset.setv( mulv(this.canvasSize, this.canvasToGraphScale).scaleBy( 0.5 ).decBy( point ) );
+        this.redraw();
+    }
+
+    setXRange(minX, maxX) {
+
+        // set the graph to range from minX to maxX on x axis
+        this.canvasToGraphScale.x = (maxX - minX) / this.canvasSize.x;
+        this.originOffset.x       = (this.canvasSize.x * this.canvasToGraphScale.x - minX - maxX) / 2;
+        this.redraw();
+    }
+
+    setYRange(minY, maxY) {
+
+        // set the graph to range from minY to maxY on y axis
+        this.canvasToGraphScale.y = (maxY - minY) / -this.canvasSize.y;
+        this.originOffset.y       = (this.canvasSize.y * this.canvasToGraphScale.y - minY - maxY) / 2;
         this.redraw();
     }
 }
