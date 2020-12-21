@@ -17,6 +17,7 @@ class Graph {
         this.mouseMove            = new vec2(0, 0);
         this.dpr                  = 0;
         this.rem                  = parseInt( getComputedStyle(document.documentElement).fontSize );
+        this.canDragPoints        = false;
 
         // data variables
         this.points               = [];
@@ -73,11 +74,18 @@ class Graph {
 
         const zoomAmount = event.deltaY / 1000;
 
-        // offset origin by a bit to keep mouse in same place on graph
-        this.originOffset.incBy( new vec2( event.offsetX, event.offsetY ).scaleBy( this.dpr * zoomAmount )
-                                                                         .mulBy( this.canvasToGraphScale ) );
-        // change scale to zoom
-        this.canvasToGraphScale.scaleBy( 1 + zoomAmount );
+        // use ctrl and shift keys to decide whether to zoom in x or y directions or both
+        if( !event.ctrlKey ) {
+
+            // have to shift the origin to make the mouse the centre of enlargement
+            this.originOffset.x       += event.offsetX * this.dpr * zoomAmount * this.canvasToGraphScale.x;
+            this.canvasToGraphScale.x *= 1 + zoomAmount;
+        }
+
+        if( !event.shiftKey ) {
+            this.originOffset.y       += event.offsetY * this.dpr * zoomAmount * this.canvasToGraphScale.y;
+            this.canvasToGraphScale.y *= 1 + zoomAmount;
+        }
 
         this.redraw();
     }
@@ -121,7 +129,8 @@ class Graph {
         else {
 
             // update close point
-            this.closePoint = this.points.find( point => sqrDistv( this.graphToCanvas( vec2.clone( this.mousePos ) ), 
+            this.closePoint = this.points.find( point => this.canDragPoints &&
+                                                         sqrDistv( this.graphToCanvas( vec2.clone( this.mousePos ) ), 
                                                                    this.graphToCanvas( vec2.clone( point         ) ) ) < this.rem**2 / 4 );
 
             // if mouse is close to a point then change cursor to movey
@@ -132,7 +141,7 @@ class Graph {
     mouseup(event) {
 
         // handle adding/removing a point on click but only if the mouse didn't more during the click
-        if( this.mouseClicked && !this.movedInClick ) {
+        if( this.mouseClicked && !this.movedInClick && this.canDragPoints ) {
 
             // if mouse is over an existing point then remove it
             if( this.closePoint ) 
@@ -181,7 +190,7 @@ class Graph {
         this.drawMousePosition();
         
         // continue draw loop
-        // requestAnimationFrame( () => this.redraw() );
+        // requestAnimationFrame( () => this.redraw() ); commented as using this.redraw to redraw only when needed
     }
 
     getGridlinePositions() {
@@ -349,6 +358,11 @@ class Graph {
 
         this.points = [];
         this.redraw();
+    }
+
+    getCentre() {
+
+        return mulv(this.canvasSize, this.canvasToGraphScale).scaleBy( 0.5 ).decBy( this.originOffset );
     }
 
     setCentre(point) {
