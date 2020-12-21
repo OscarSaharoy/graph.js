@@ -411,7 +411,7 @@ function graphjsDefaultDrawCurve(points, ctx) {
 
     // set style
     ctx.strokeStyle = "#54f330";
-    ctx.lineWidth   = 2;
+    ctx.lineWidth   = 2.5;
 
     ctx.beginPath();
     ctx.moveTo( points[0].x, points[0].y );

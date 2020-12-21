@@ -66,6 +66,10 @@ class vec2 {
     static clone(vec) {
         return new vec2(vec.x, vec.y);
     }
+
+    static fromPolar(r, theta) {
+        return new vec2( Math.cos(theta), Math.sin(theta) ).scaleBy( r );
+    }
 }
 
 // vector arithmatic
