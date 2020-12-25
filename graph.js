@@ -34,6 +34,18 @@ class Graph {
         this.graphToCanvasX = graphX => (graphX + this.originOffset.x) / this.canvasToGraphScale.x;
         this.graphToCanvasY = graphY => (graphY + this.originOffset.y) / this.canvasToGraphScale.y;
 
+        // returns true if a point is inside the graph viewport
+        this.insideViewport = point  => point.x > - this.originOffset.x
+                                     && point.y < - this.originOffset.y
+                                     && point.x < this.canvasSize.x * this.canvasToGraphScale.x - this.originOffset.x 
+                                     && point.y > this.canvasSize.y * this.canvasToGraphScale.y - this.originOffset.y;
+
+        // function to determine if we must draw a point or if we can skip it to save performance
+        this.mustDrawPoint = (p, i, arr) => i == 0 || i == arr.length-1 
+                                         || this.insideViewport( p ) 
+                                         || this.insideViewport( arr[i-1] )
+                                         || this.insideViewport( arr[i+1] );
+
         // event listeners
         window.addEventListener(      "resize",     event => this.resize(event)    );
         this.canvas.addEventListener( "wheel",      event => this.wheel(event)     );
@@ -179,7 +191,7 @@ class Graph {
         const gridlinePositions = this.getGridlinePositions();
 
         // map points to canvas space - used for drawing them
-        const pointsOnCanvas = this.points.map( vec2.clone ).map( this.graphToCanvas );
+        const pointsOnCanvas = this.points.filter( this.mustDrawPoint ).map( vec2.clone ).map( this.graphToCanvas );
 
         // draw the graph elements
         this.drawAxes();
