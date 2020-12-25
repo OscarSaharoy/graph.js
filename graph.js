@@ -441,42 +441,57 @@ function graphjsFormatNumber(x) {
     var text = x.toString();
     if( Math.abs(x) > 10000 || Math.abs(x) < 0.001 ) text = x.toExponential();
 
+    var fixed;
+
     // fix numbers like 57.5699999999995e+12
-    if( text[14] == '9' ) {
+    const ninesRegexMatch = text.match( /(9|\.|\-){4,}(\d)*/ );
 
-        var toKeep = 13;
-        while( text[toKeep] == '9' || text[toKeep] == '.' ) {
-            
-            --toKeep;
+    if(ninesRegexMatch) {
 
-            // when we reach the last numerical character break
-            if( toKeep == 0 || toKeep == 1 && x < 0 ) break;
+        var incrementPower = false;
+
+        // if start of string is nines (9.999932) then handle this case
+        if( ninesRegexMatch.index == 0 ) {
+
+            fixed = x>0 ? "1" : "-1";
+            incrementPower = true;
         }
 
-        var fixed = text.slice(0, toKeep);
-        fixed += parseInt( text[toKeep] ) + 1; // add on the last number we want but add 1 to make up for all the nines
+        else{
+            
+            // extract correct part of string (except digit to be incremented)
+            fixed = text.substring(0, ninesRegexMatch.index-1);
 
-        const suffix = text.match(/e(\+|\-)\d+/);
-        if(suffix) fixed += suffix[0];
+            // increment last correct digit and add it on to make up for nines
+            fixed += parseInt( text[ninesRegexMatch.index-1] ) + 1;
+        }
+
+        // match suffix of the form e+xxx and add it back on
+        const suffix = text.match( /e(\+|\-)(\d+)/ );
+        
+        if(suffix) {
+
+            var power = parseInt( suffix[2] )
+
+            if(incrementPower) power += Math.abs(x) > 1 ? 1 : -1;
+
+            fixed += "e" + suffix[1] + power;
+        }
 
         return fixed;
     }
 
     // fix numbers like 5.560000000001e-5
-    if( text[14] == '0' ) {
+    const zerosRegexMatch = text.match( /(0|\.){5,}(\d)+/ );
 
-        var toKeep = 13;
-        while( text[toKeep] == '0' || text[toKeep] == '.' ) {
-            
-            --toKeep;
+    if(zerosRegexMatch) {
 
-            // when we reach the last numerical character break
-            if( toKeep == 0 || toKeep == 1 && x < 0 ) break;
-        }
+        // extract correct part of string
+        fixed = text.substring(0, zerosRegexMatch.index);
 
-        var fixed = text.slice(0, toKeep+1);
+        // match suffix of the form e+xxx and add it back on
+        const suffix = text.match( /e(\+|\-)(\d+)/ );
 
-        const suffix = text.match(/e(\+|\-)\d+/);
         if(suffix) fixed += suffix[0];
 
         return fixed;
