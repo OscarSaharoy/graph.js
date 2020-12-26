@@ -41,10 +41,9 @@ class Graph {
                                      && point.y > this.canvasSize.y * this.canvasToGraphScale.y - this.originOffset.y;
 
         // function to determine if we must draw a point or if we can skip it to save performance
-        this.mustDrawPoint = (p, i, arr) => i == 0 || i == arr.length-1 
-                                         || this.insideViewport( p ) 
-                                         || this.insideViewport( arr[i-1] )
-                                         || this.insideViewport( arr[i+1] );
+        this.mustDrawPoint = (p, i, arr) => this.insideViewport( p ) 
+                                         || i != 0            && this.insideViewport( arr[i-1] )
+                                         || i != arr.length-1 && this.insideViewport( arr[i+1] );
 
         // event listeners
         window.addEventListener(      "resize",     event => this.resize(event)    );
@@ -427,7 +426,19 @@ function graphjsDefaultDrawCurve(points, ctx) {
 
     ctx.beginPath();
     ctx.moveTo( points[0].x, points[0].y );
-    points.forEach( point => ctx.lineTo( point.x, point.y ) );
+
+    // keep track of the last point that we drew
+    var lastDrawnPoint = points[0];
+
+    for(point of points) {
+
+        // for each next point, only draw it if its more than 3 pixels away from the last one we drew
+        if( taxiDistv(point, lastDrawnPoint) < 3 ) continue;
+
+        lastDrawnPoint = point;
+        ctx.lineTo( point.x, point.y )
+    }
+
     ctx.stroke();
 }
 

@@ -73,11 +73,12 @@ class vec2 {
 }
 
 // vector arithmatic
-const addv     = (vecA, vecB) => new vec2( vecA.x + vecB.x, vecA.y + vecB.y );
-const subv     = (vecA, vecB) => new vec2( vecA.x - vecB.x, vecA.y - vecB.y );
-const mulv     = (vecA, vecB) => new vec2( vecA.x * vecB.x, vecA.y * vecB.y );
-const divv     = (vecA, vecB) => new vec2( vecA.x / vecB.x, vecA.y / vecB.y );
-const negv     = (vec)        => new vec2( -vec.x, -vec.y );
-const scalev   = (vec, S)     => new vec2( S * vec.x, S * vec.y );
-const sqrDistv = (vecA, vecB) => ( vecA.x - vecB.x ) ** 2 + ( vecA.y - vecB.y ) ** 2;
-const lerpv    = (vecA, vecB, d) => scalev(vecB, d).incBy( scalev(vecA, 1-d) );
+const addv      = (vecA, vecB) => new vec2( vecA.x + vecB.x, vecA.y + vecB.y );
+const subv      = (vecA, vecB) => new vec2( vecA.x - vecB.x, vecA.y - vecB.y );
+const mulv      = (vecA, vecB) => new vec2( vecA.x * vecB.x, vecA.y * vecB.y );
+const divv      = (vecA, vecB) => new vec2( vecA.x / vecB.x, vecA.y / vecB.y );
+const negv      = (vec)        => new vec2( -vec.x, -vec.y );
+const scalev    = (vec, S)     => new vec2( S * vec.x, S * vec.y );
+const sqrDistv  = (vecA, vecB) => ( vecA.x - vecB.x ) ** 2 + ( vecA.y - vecB.y ) ** 2;
+const taxiDistv = (vecA, vecB) => Math.abs( vecA.x - vecB.x ) + Math.abs( vecA.y - vecB.y ); 
+const lerpv     = (vecA, vecB, d) => scalev(vecB, d).incBy( scalev(vecA, 1-d) );
