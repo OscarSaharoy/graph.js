@@ -24,7 +24,7 @@ class Graph {
         this.closePoint           = undefined;
 
         // user-changeable drawing functions
-        this.pointDrawingFunction = graphjsDefaultDrawPoint;
+        this.pointDrawingFunction = graphjsDefaultDrawPoints;
         this.curveDrawingFunction = graphjsDefaultDrawCurve;
 
         // functions to  translate from graph space to canvas space
@@ -46,12 +46,12 @@ class Graph {
                                          || i != arr.length-1 && this.insideViewport( arr[i+1] );
 
         // event listeners
-        window.addEventListener(      "resize",     event => this.resize(event)    );
-        this.canvas.addEventListener( "wheel",      event => this.wheel(event)     );
-        this.canvas.addEventListener( "mouseup",    event => this.mouseup(event)   );
-        this.canvas.addEventListener( "mousemove",  event => this.mousemove(event) );
-        this.canvas.addEventListener( "mousedown",  event => this.mousedown(event) );
-        this.canvas.addEventListener( "mouseleave", event => this.mouseleave(event));
+        window.addEventListener(      "resize",     event => this.resize(event)     );
+        this.canvas.addEventListener( "wheel",      event => this.wheel(event)      );
+        this.canvas.addEventListener( "mouseup",    event => this.mouseup(event)    );
+        this.canvas.addEventListener( "mousemove",  event => this.mousemove(event)  );
+        this.canvas.addEventListener( "mousedown",  event => this.mousedown(event)  );
+        this.canvas.addEventListener( "mouseleave", event => this.mouseleave(event) );
         // this.canvas.addEventListener( "touchend",   event => this.mouseup(event.touches[0])   );
         // this.canvas.addEventListener( "touchmove",  event => this.mousemove(event.touches[0]) );
         // this.canvas.addEventListener( "touchstart", event => this.mousedown(event.touches[0]) );
@@ -141,8 +141,8 @@ class Graph {
 
             // update close point
             this.closePoint = this.points.find( point => this.canDragPoints &&
-                                                         sqrDistv( this.graphToCanvas( vec2.clone( this.mousePos ) ), 
-                                                                   this.graphToCanvas( vec2.clone( point         ) ) ) < this.rem**2 / 4 );
+                                                         vec2.sqrDist( this.graphToCanvas( vec2.clone( this.mousePos ) ), 
+                                                                       this.graphToCanvas( vec2.clone( point         ) ) ) < this.rem**2 / 4 );
 
             // if mouse is close to a point then change cursor to movey
             this.canvas.style.cursor = this.closePoint ? "move" : "auto";
@@ -184,7 +184,7 @@ class Graph {
 
         // set origin position fixed inside the canvas
         this.originFixedInCanvas.setv( 
-            divv( this.originOffset, this.canvasToGraphScale ).clamp( new vec2(0, 0), this.canvasSize ) );
+            vec2.div( this.originOffset, this.canvasToGraphScale ).clamp( new vec2(0, 0), this.canvasSize ) );
 
         // get positions of gridlines on graph
         const gridlinePositions = this.getGridlinePositions();
@@ -210,7 +210,7 @@ class Graph {
         const gridlines = { x: [], y: [] };
 
         // size of the graph in graph space
-        const graphSize = mulv( this.canvasSize, this.canvasToGraphScale ).abs();
+        const graphSize = vec2.mul( this.canvasSize, this.canvasToGraphScale ).abs();
 
         // calculate space between the gridlines in graph units
         var gridlineSpacingX = Math.pow(10, Math.floor( Math.log10(graphSize.x) ) );
@@ -270,13 +270,13 @@ class Graph {
     drawCurve(pointsOnCanvas) {
 
         // defer to user-controllable curve drawing function
-        this.curveDrawingFunction( pointsOnCanvas, this.ctx );
+        this.curveDrawingFunction( pointsOnCanvas, this );
     }
 
     drawPoints(pointsOnCanvas) {
 
         // defer to user-controllable point drawing function
-        pointsOnCanvas.forEach( point => this.pointDrawingFunction( point, this.ctx ) );
+        this.pointDrawingFunction( pointsOnCanvas, this );
     }
 
     drawMousePosition() {
@@ -373,13 +373,13 @@ class Graph {
 
     getCentre() {
 
-        return mulv(this.canvasSize, this.canvasToGraphScale).scaleBy( 0.5 ).decBy( this.originOffset );
+        return vec2.mul(this.canvasSize, this.canvasToGraphScale).scaleBy( 0.5 ).decBy( this.originOffset );
     }
 
     setCentre(point) {
 
         // set the centre of the graph to be point
-        this.originOffset.setv( mulv(this.canvasSize, this.canvasToGraphScale).scaleBy( 0.5 ).decBy( point ) );
+        this.originOffset.setv( vec2.mul(this.canvasSize, this.canvasToGraphScale).scaleBy( 0.5 ).decBy( point ) );
         this.redraw();
     }
 
@@ -402,30 +402,30 @@ class Graph {
 
 
 // default point drawing function draws a green circle
-function graphjsDefaultDrawPoint(point, ctx) {
+function graphjsDefaultDrawPoints(point, graph) {
 
     // set style
-    ctx.strokeStyle = "#54f330";
-    ctx.fillStyle   = "#ffffff"
-    ctx.lineWidth   = 3;
+    graph.ctx.strokeStyle = "#54f330";
+    graph.ctx.fillStyle   = "#ffffff"
+    graph.ctx.lineWidth   = 3;
 
-    ctx.beginPath();
-    ctx.arc( point.x, point.y, 8, 0, 6.28 );
-    ctx.fill();
-    ctx.stroke();
+    graph.ctx.beginPath();
+    graph.ctx.arc( point.x, point.y, 8, 0, 6.28 );
+    graph.ctx.fill();
+    graph.ctx.stroke();
 }
 
 // default curve drawing function
-function graphjsDefaultDrawCurve(points, ctx) {
+function graphjsDefaultDrawCurve(points, graph) {
 
     if( !points.length ) return;
 
     // set style
-    ctx.strokeStyle = "#54f330";
-    ctx.lineWidth   = 2.5;
+    graph.ctx.strokeStyle = "#54f330";
+    graph.ctx.lineWidth   = 2.5;
 
-    ctx.beginPath();
-    ctx.moveTo( points[0].x, points[0].y );
+    graph.ctx.beginPath();
+    graph.ctx.moveTo( points[0].x, points[0].y );
 
     // keep track of the last point that we drew
     var lastDrawnPoint = points[0];
@@ -433,13 +433,13 @@ function graphjsDefaultDrawCurve(points, ctx) {
     for(point of points) {
 
         // for each next point, only draw it if its more than 3 pixels away from the last one we drew
-        if( taxiDistv(point, lastDrawnPoint) < 3 ) continue;
+        if( vec2.taxiDist(point, lastDrawnPoint) < 3 ) continue;
 
         lastDrawnPoint = point;
-        ctx.lineTo( point.x, point.y )
+        graph.ctx.lineTo( point.x, point.y );
     }
 
-    ctx.stroke();
+    graph.ctx.stroke();
 }
 
 // number formatting function
