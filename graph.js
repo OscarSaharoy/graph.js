@@ -9,19 +9,19 @@ class Graph {
         this.ctx    = this.canvas.getContext("2d");
 
         // declare properties
-        this.canvasSize           = new vec2(0, 0);
-        this.canvasToGraphScale   = new vec2(0.01, -0.01); // 2d scale factor that converts from canvas space to graph space
-        this.originOffset         = new vec2(0, 0); // offset of the origin from top corner of canvas in graph space
-        this.originFixedInCanvas  = new vec2(0, 0);
-        this.mousePos             = new vec2(0, 0);
-        this.mouseMove            = new vec2(0, 0);
-        this.dpr                  = 0;
-        this.rem                  = parseInt( getComputedStyle(document.documentElement).fontSize );
-        this.canDragPoints        = false;
+        this.canvasSize          = new vec2(0, 0);
+        this.canvasToGraphScale  = new vec2(0.01, -0.01); // 2d scale factor that converts from canvas space to graph space
+        this.originOffset        = new vec2(0, 0); // offset of the origin from top corner of canvas in graph space
+        this.originFixedInCanvas = new vec2(0, 0);
+        this.mousePos            = new vec2(0, 0);
+        this.mouseMove           = new vec2(0, 0);
+        this.dpr                 = 0;
+        this.rem                 = parseInt( getComputedStyle(document.documentElement).fontSize );
+        this.canDragPoints       = false;
 
         // data variables
-        this.points               = [];
-        this.closePoint           = undefined;
+        this.points              = [];
+        this.closePoint          = undefined;
 
         // user-changeable drawing functions
         this.pointDrawingFunction = graphjsDefaultDrawPoints;
@@ -72,9 +72,6 @@ class Graph {
 
         this.canvas.width  = this.canvasSize.x;
         this.canvas.height = this.canvasSize.y;
-
-        // redraw canvas with new sizing
-        this.redraw();
     }
 
     wheel(event) {
@@ -97,8 +94,6 @@ class Graph {
             this.originOffset.y       += event.offsetY * this.dpr * zoomAmount * this.canvasToGraphScale.y;
             this.canvasToGraphScale.y *= 1 + zoomAmount;
         }
-
-        this.redraw();
     }
 
     mousedown(event) {
@@ -112,7 +107,6 @@ class Graph {
         // get mousePos for display at top of graph and close data point, and mouseMove for panning graph
         this.canvasToGraph( this.mousePos.setxy( event.offsetX, event.offsetY ).scaleBy( this.dpr ) );
         this.mouseMove.setxy( event.movementX, event.movementY ).mulBy( this.canvasToGraphScale );
-        this.drawMousePosition();
 
         // cases where the mouse is clicked
         if( this.mouseClicked ) {
@@ -132,8 +126,6 @@ class Graph {
                 // shift origin to pan graph
                 this.originOffset.incBy( this.mouseMove );
             }
-
-            this.redraw();
         }
 
         // otherwise handle case where mouse isnt clicked
@@ -159,9 +151,7 @@ class Graph {
                 this.points = this.points.filter( point => point !== this.closePoint );
 
             // otherwise add another point at current mouse position
-            else this.points.push( vec2.clone( this.mousePos ) );
-
-            this.redraw();    
+            else this.points.push( vec2.clone( this.mousePos ) );  
         }
 
         // set mouse flags
@@ -201,7 +191,7 @@ class Graph {
         this.drawMousePosition();
         
         // continue draw loop
-        // requestAnimationFrame( () => this.redraw() ); commented as using this.redraw to redraw only when needed
+        requestAnimationFrame( () => this.redraw() ); //commented as using this.redraw to redraw only when needed
     }
 
     getGridlinePositions() {
@@ -261,7 +251,7 @@ class Graph {
 
         // change style for labels
         this.ctx.fillStyle = "black";
-        this.ctx.font      = "1rem Roboto Mono";
+        this.ctx.font      = "500 1rem Roboto Mono";
 
         gridlinePositions.x.forEach( x => this.drawXLabel( x ) );
         gridlinePositions.y.forEach( y => this.drawYLabel( y ) );
@@ -281,7 +271,7 @@ class Graph {
 
     drawMousePosition() {
 
-        this.ctx.font = "1.3rem Roboto Mono";
+        this.ctx.font = "500 1.3rem Roboto Mono";
 
         // get text from mousePos
         const text = this.mousePos.x.toPrecision(3) + ", " + this.mousePos.y.toPrecision(3);
@@ -289,11 +279,11 @@ class Graph {
 
         // draw white box behind
         this.ctx.fillStyle = "white";
-        this.ctx.fillRect(this.canvasSize.x-8-textWidth*1.5, 0, 8+textWidth*1.5, this.rem*1.3 + 8);
+        this.ctx.fillRect(this.canvasSize.x-8-textWidth, 0, 8+textWidth, this.rem*1.3 + 8);
 
         // draw numbers
         this.ctx.fillStyle = "black";
-        this.ctx.fillText(text, this.canvasSize.x-4-textWidth, this.rem*1.3 + 4);
+        this.ctx.fillText(text, this.canvasSize.x-8-textWidth, this.rem*1.3 + 4);
     }
 
     drawVerticalLine(canvasX) {
@@ -350,25 +340,21 @@ class Graph {
     addPoint(point) {
 
         this.points.push( point );
-        this.redraw();
     }
 
     addPoints(points) {
 
         points.forEach( point => this.points.push(point) );
-        this.redraw();
     }
 
     removePoint(point) {
 
         this.points = this.points.filter( x => x != point );
-        this.redraw();
     }
 
     clearPoints() {
 
         this.points = [];
-        this.redraw();
     }
 
     getCentre() {
@@ -380,7 +366,6 @@ class Graph {
 
         // set the centre of the graph to be point
         this.originOffset.setv( vec2.mul(this.canvasSize, this.canvasToGraphScale).scaleBy( 0.5 ).decBy( point ) );
-        this.redraw();
     }
 
     setXRange(minX, maxX) {
@@ -388,7 +373,6 @@ class Graph {
         // set the graph to range from minX to maxX on x axis
         this.canvasToGraphScale.x = (maxX - minX) / this.canvasSize.x;
         this.originOffset.x       = (this.canvasSize.x * this.canvasToGraphScale.x - minX - maxX) / 2;
-        this.redraw();
     }
 
     setYRange(minY, maxY) {
@@ -396,23 +380,25 @@ class Graph {
         // set the graph to range from minY to maxY on y axis
         this.canvasToGraphScale.y = (maxY - minY) / -this.canvasSize.y;
         this.originOffset.y       = (this.canvasSize.y * this.canvasToGraphScale.y - minY - maxY) / 2;
-        this.redraw();
     }
 }
 
 
 // default point drawing function draws a green circle
-function graphjsDefaultDrawPoints(point, graph) {
+function graphjsDefaultDrawPoints(points, graph) {
 
     // set style
     graph.ctx.strokeStyle = "#54f330";
-    graph.ctx.fillStyle   = "#ffffff"
+    graph.ctx.fillStyle   = "#ffffff";
     graph.ctx.lineWidth   = 3;
 
-    graph.ctx.beginPath();
-    graph.ctx.arc( point.x, point.y, 8, 0, 6.28 );
-    graph.ctx.fill();
-    graph.ctx.stroke();
+    for(point of points) {
+
+        graph.ctx.beginPath();
+        graph.ctx.arc( point.x, point.y, 8, 0, 6.28 );
+        graph.ctx.fill();
+        graph.ctx.stroke();
+    }
 }
 
 // default curve drawing function

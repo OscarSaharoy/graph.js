@@ -1,6 +1,5 @@
 // Oscar Saharoy 2020
 
-// vec2 class really simple
 class vec2 {
 
     constructor(x, y) {
