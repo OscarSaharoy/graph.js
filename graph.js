@@ -26,6 +26,7 @@ class Graph {
         // user-changeable drawing functions
         this.pointDrawingFunction = graphjsDefaultDrawPoints;
         this.curveDrawingFunction = graphjsDefaultDrawCurve;
+        this.userFunction         = () => {};
 
         // functions to  translate from graph space to canvas space
         this.canvasToGraph  = point  => point.mulBy( this.canvasToGraphScale ).decBy( this.originOffset );
@@ -185,10 +186,11 @@ class Graph {
         // draw the graph elements
         this.drawAxes();
         this.drawGridlines(gridlinePositions);
-        this.drawCurve(pointsOnCanvas);
-        this.drawPoints(pointsOnCanvas);
+        this.curveDrawingFunction( pointsOnCanvas, this );
+        this.pointDrawingFunction( pointsOnCanvas, this );
         this.drawLabels(gridlinePositions);
         this.drawMousePosition();
+        this.userFunction(this);
         
         // continue draw loop
         requestAnimationFrame( () => this.redraw() ); //commented as using this.redraw to redraw only when needed
@@ -255,18 +257,6 @@ class Graph {
 
         gridlinePositions.x.forEach( x => this.drawXLabel( x ) );
         gridlinePositions.y.forEach( y => this.drawYLabel( y ) );
-    }
-
-    drawCurve(pointsOnCanvas) {
-
-        // defer to user-controllable curve drawing function
-        this.curveDrawingFunction( pointsOnCanvas, this );
-    }
-
-    drawPoints(pointsOnCanvas) {
-
-        // defer to user-controllable point drawing function
-        this.pointDrawingFunction( pointsOnCanvas, this );
     }
 
     drawMousePosition() {

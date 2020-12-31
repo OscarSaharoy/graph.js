@@ -15,7 +15,6 @@ function animation() {
 
 	t += 0.01;
 
-	graphjs.redraw();
 	requestAnimationFrame( animation );
 }
 
