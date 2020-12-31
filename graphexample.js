@@ -2,7 +2,6 @@
 
 const graphjs = new Graph("graphjs");
 
-graphjs.pointDrawingFunction = () => {};
 graphjs.setXRange(-1.5, 1.5);
 graphjs.setYRange(-1.5, 1.5);
 

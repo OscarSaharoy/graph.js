@@ -24,7 +24,6 @@ class Graph {
         this.closePoint          = undefined;
 
         // user-changeable drawing functions
-        this.pointDrawingFunction = graphjsDefaultDrawPoints;
         this.curveDrawingFunction = graphjsDefaultDrawCurve;
         this.userFunction         = () => {};
 
@@ -187,7 +186,6 @@ class Graph {
         this.drawAxes();
         this.drawGridlines(gridlinePositions);
         this.curveDrawingFunction( pointsOnCanvas, this );
-        this.pointDrawingFunction( pointsOnCanvas, this );
         this.drawLabels(gridlinePositions);
         this.drawMousePosition();
         this.userFunction(this);
@@ -370,6 +368,13 @@ class Graph {
         // set the graph to range from minY to maxY on y axis
         this.canvasToGraphScale.y = (maxY - minY) / -this.canvasSize.y;
         this.originOffset.y       = (this.canvasSize.y * this.canvasToGraphScale.y - minY - maxY) / 2;
+    }
+
+    setRange(bottomLeft, topRight) {
+
+        // set graph range using 2 points
+        this.canvasToGraphScale   = vec2.sub( topRight, bottomLeft ).divBy( this.canvasSize ).mulBy( new vec2(1, -1) );
+        this.originOffset         = vec2.mul(this.canvasSize, this.canvasToGraphScale).decBy( bottomLeft ).decBy( topRight ).scaleBy( 0.5 );
     }
 }
 
