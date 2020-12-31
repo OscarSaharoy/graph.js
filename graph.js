@@ -14,22 +14,23 @@ class Graph {
         this.originOffset        = new vec2(0, 0); // offset of the origin from top corner of canvas in graph space
         this.originFixedInCanvas = new vec2(0, 0);
         this.mousePos            = new vec2(0, 0);
+        this.mousePosOnCanvas    = new vec2(0, 0);
         this.mouseMove           = new vec2(0, 0);
+        this.preventPanning      = false;
+        this.mouseOverCanvas     = false;
         this.dpr                 = 0;
         this.rem                 = parseInt( getComputedStyle(document.documentElement).fontSize );
-        this.canDragPoints       = false;
 
         // data variables
         this.points              = [];
-        this.closePoint          = undefined;
 
         // user-changeable drawing functions
         this.curveDrawingFunction = graphjsDefaultDrawCurve;
-        this.userFunction         = () => {};
+        this.userFunction         = graph => {};
 
         // functions to  translate from graph space to canvas space
-        this.canvasToGraph  = point  => point.mulBy( this.canvasToGraphScale ).decBy( this.originOffset );
-        this.graphToCanvas  = point  => point.incBy( this.originOffset ).divBy( this.canvasToGraphScale );
+        this.canvasToGraph  = point  => vec2.mul( point, this.canvasToGraphScale ).decBy( this.originOffset );
+        this.graphToCanvas  = point  => vec2.add( point, this.originOffset ).divBy( this.canvasToGraphScale );
 
         this.graphToCanvasX = graphX => (graphX + this.originOffset.x) / this.canvasToGraphScale.x;
         this.graphToCanvasY = graphY => (graphY + this.originOffset.y) / this.canvasToGraphScale.y;
@@ -46,12 +47,13 @@ class Graph {
                                          || i != arr.length-1 && this.insideViewport( arr[i+1] );
 
         // event listeners
-        window.addEventListener(      "resize",     event => this.resize(event)     );
-        this.canvas.addEventListener( "wheel",      event => this.wheel(event)      );
-        this.canvas.addEventListener( "mouseup",    event => this.mouseup(event)    );
-        this.canvas.addEventListener( "mousemove",  event => this.mousemove(event)  );
-        this.canvas.addEventListener( "mousedown",  event => this.mousedown(event)  );
-        this.canvas.addEventListener( "mouseleave", event => this.mouseleave(event) );
+        window.addEventListener(      "resize",     event => this.resize(event)      );
+        this.canvas.addEventListener( "wheel",      event => this.zoomGraph(event)   );
+        this.canvas.addEventListener( "mouseup",    event => this.mouseup(event)     );
+        this.canvas.addEventListener( "mousemove",  event => this.setMousePos(event) );
+        this.canvas.addEventListener( "mousemove",  event => this.panGraph(event)    );
+        this.canvas.addEventListener( "mousedown",  event => this.mousedown(event)   );
+        this.canvas.addEventListener( "mouseleave", event => this.mouseleave(event)  );
         // this.canvas.addEventListener( "touchend",   event => this.mouseup(event.touches[0])   );
         // this.canvas.addEventListener( "touchmove",  event => this.mousemove(event.touches[0]) );
         // this.canvas.addEventListener( "touchstart", event => this.mousedown(event.touches[0]) );
@@ -74,7 +76,7 @@ class Graph {
         this.canvas.height = this.canvasSize.y;
     }
 
-    wheel(event) {
+    zoomGraph(event) {
 
         // zoom in and out on the graph
 
@@ -91,6 +93,7 @@ class Graph {
         }
 
         if( !event.shiftKey ) {
+
             this.originOffset.y       += event.offsetY * this.dpr * zoomAmount * this.canvasToGraphScale.y;
             this.canvasToGraphScale.y *= 1 + zoomAmount;
         }
@@ -102,69 +105,45 @@ class Graph {
         this.mouseClicked = true;
     }
 
-    mousemove(event) {
+    setMousePos(event) {
 
         // get mousePos for display at top of graph and close data point, and mouseMove for panning graph
-        this.canvasToGraph( this.mousePos.setxy( event.offsetX, event.offsetY ).scaleBy( this.dpr ) );
+        this.mousePosOnCanvas.setxy(event.offsetX, event.offsetY).scaleBy( this.dpr );
+        this.mousePos.setv( this.canvasToGraph( this.mousePosOnCanvas ));
         this.mouseMove.setxy( event.movementX, event.movementY ).mulBy( this.canvasToGraphScale );
 
-        // cases where the mouse is clicked
-        if( this.mouseClicked ) {
+        // the mouse must be over the canvas so set that flag
+        this.mouseOverCanvas = true;
+    }
 
-            // set moved in click flag
-            this.movedInClick = true;
+    panGraph(event) {
 
-            // move close data point to under cursor if there is one
-            if( this.closePoint ) this.closePoint.setv( this.mousePos );
+        // only act if the mouse is clicked and prevent panning is false
+        if( !this.mouseClicked || this.preventPanning ) return;
 
-            // otherwise handle panning the graph
-            else {
+        // set cursor to little hand grabbing
+        this.canvas.style.cursor = "grabbing";
 
-                // set cursor to little hand grabbing
-                this.canvas.style.cursor = "grabbing";
-
-                // shift origin to pan graph
-                this.originOffset.incBy( this.mouseMove );
-            }
-        }
-
-        // otherwise handle case where mouse isnt clicked
-        else {
-
-            // update close point
-            this.closePoint = this.points.find( point => this.canDragPoints &&
-                                                         vec2.sqrDist( this.graphToCanvas( vec2.clone( this.mousePos ) ), 
-                                                                       this.graphToCanvas( vec2.clone( point         ) ) ) < this.rem**2 / 4 );
-
-            // if mouse is close to a point then change cursor to movey
-            this.canvas.style.cursor = this.closePoint ? "move" : "auto";
-        }
+        // shift origin to pan graph
+        this.originOffset.incBy( this.mouseMove );
     }
 
     mouseup(event) {
 
-        // handle adding/removing a point on click but only if the mouse didn't more during the click
-        if( this.mouseClicked && !this.movedInClick && this.canDragPoints ) {
+        // set mouseClicked flag
+        this.mouseClicked = false;
 
-            // if mouse is over an existing point then remove it
-            if( this.closePoint ) 
-                this.points = this.points.filter( point => point !== this.closePoint );
-
-            // otherwise add another point at current mouse position
-            else this.points.push( vec2.clone( this.mousePos ) );  
-        }
-
-        // set mouse flags
-        this.mouseClicked = this.movedInClick = false;
-
-        // update cursor and closePoint
-        this.mousemove(event)
+        // update cursor
+        this.canvas.style.cursor = "auto";
     }
 
     mouseleave(event) {
 
-        // treat mouse leaving the canvas as a mouseup event
-        this.mouseup(event);
+        // unset the mouse over canvas flag
+        this.mouseOverCanvas = false;;
+
+        // treat mouseleave like a mouseup
+        this.mouseup();
     }
 
     redraw() {
@@ -180,7 +159,7 @@ class Graph {
         const gridlinePositions = this.getGridlinePositions();
 
         // map points to canvas space - used for drawing them
-        const pointsOnCanvas = this.points.filter( this.mustDrawPoint ).map( vec2.clone ).map( this.graphToCanvas );
+        const pointsOnCanvas = this.points.filter( this.mustDrawPoint ).map( this.graphToCanvas );
 
         // draw the graph elements
         this.drawAxes();
@@ -191,7 +170,7 @@ class Graph {
         this.userFunction(this);
         
         // continue draw loop
-        requestAnimationFrame( () => this.redraw() ); //commented as using this.redraw to redraw only when needed
+        requestAnimationFrame( () => this.redraw() );
     }
 
     getGridlinePositions() {
@@ -347,7 +326,7 @@ class Graph {
 
     getCentre() {
 
-        return vec2.mul(this.canvasSize, this.canvasToGraphScale).scaleBy( 0.5 ).decBy( this.originOffset );
+        return vec2.mul( this.canvasSize, this.canvasToGraphScale ).scaleBy( 0.5 ).decBy( this.originOffset );
     }
 
     setCentre(point) {
@@ -378,23 +357,6 @@ class Graph {
     }
 }
 
-
-// default point drawing function draws a green circle
-function graphjsDefaultDrawPoints(points, graph) {
-
-    // set style
-    graph.ctx.strokeStyle = "#54f330";
-    graph.ctx.fillStyle   = "#ffffff";
-    graph.ctx.lineWidth   = 3;
-
-    for(point of points) {
-
-        graph.ctx.beginPath();
-        graph.ctx.arc( point.x, point.y, 8, 0, 6.28 );
-        graph.ctx.fill();
-        graph.ctx.stroke();
-    }
-}
 
 // default curve drawing function
 function graphjsDefaultDrawCurve(points, graph) {

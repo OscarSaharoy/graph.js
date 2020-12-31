@@ -70,6 +70,14 @@ class vec2 {
         return new vec2( Math.cos(theta), Math.sin(theta) ).scaleBy( r );
     }
 
+    static notANumber() {
+        return new vec2( NaN, NaN );
+    }
+
+    static isNaN(vec) {
+        return isNaN( vec.x ) || isNaN( vec.y );
+    }
+
     static add(vecA, vecB) {
         return new vec2( vecA.x + vecB.x, vecA.y + vecB.y );
     }
