@@ -1,4 +1,4 @@
-// Oscar Saharoy 2020
+// Oscar Saharoy 2021
 
 class vec2 {
 
@@ -112,5 +112,9 @@ class vec2 {
 
     static lerp(vecA, vecB, d) {
         return vec2.scale(vecB, d).incBy( vec2.scale(vecA, 1-d) );
+    }
+
+    static dot(vecA, vecB) {
+        return vecA.x * vecB.x + vecA.y * vecB.y;
     }
 }
