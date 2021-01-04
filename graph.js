@@ -9,20 +9,21 @@ class Graph {
         this.ctx    = this.canvas.getContext("2d");
 
         // declare properties
-        this.canvasSize          = new vec2(0, 0);
-        this.canvasToGraphScale  = new vec2(0.01, -0.01); // 2d scale factor that converts from canvas space to graph space
-        this.originOffset        = new vec2(0, 0); // offset of the origin from top corner of canvas in graph space
-        this.originFixedInCanvas = new vec2(0, 0);
-        this.mousePos            = new vec2(0, 0);
-        this.mousePosOnCanvas    = new vec2(0, 0);
-        this.mouseMove           = new vec2(0, 0);
-        this.preventPanning      = false;
-        this.mouseOverCanvas     = false;
-        this.dpr                 = 0;
-        this.rem                 = parseInt( getComputedStyle(document.documentElement).fontSize );
-
-        // data variables
-        this.points              = [];
+        this.canvasSize           = new vec2(0, 0);
+        this.canvasToGraphScale   = new vec2(0.01, -0.01); // 2d scale factor that converts from canvas space to graph space
+        this.originOffset         = new vec2(0, 0); // offset of the origin from top corner of canvas in graph space
+        this.originFixedInCanvas  = new vec2(0, 0);
+        this.mousePos             = new vec2(0, 0);
+        this.mousePosOnCanvas     = new vec2(0, 0);
+        this.mouseMove            = new vec2(0, 0);
+        this.lastTouchPosOnCanvas = vec2.notANumber();
+        this.preventPanning       = false;
+        this.mouseOverCanvas      = false;
+        this.dpr                  = 0;
+        this.rem                  = parseInt( getComputedStyle(document.documentElement).fontSize );
+ 
+        // data variables 
+        this.points               = [];
 
         // user-changeable drawing functions
         this.curveDrawingFunction = graphjsDefaultDrawCurve;
@@ -54,10 +55,10 @@ class Graph {
         this.canvas.addEventListener( "mousemove",  event => this.panGraph(event)    );
         this.canvas.addEventListener( "mousedown",  event => this.mousedown(event)   );
         this.canvas.addEventListener( "mouseleave", event => this.mouseleave(event)  );
-        // this.canvas.addEventListener( "touchend",   event => this.mouseup(event.touches[0])   );
-        // this.canvas.addEventListener( "touchmove",  event => this.mousemove(event.touches[0]) );
-        // this.canvas.addEventListener( "touchstart", event => this.mousedown(event.touches[0]) );
-        // this.canvas.addEventListener( "mouseleave", event => this.mouseleave(event.touches[0]));
+        this.canvas.addEventListener( "touchstart", event => this.mousedown(event)   );
+        this.canvas.addEventListener( "touchmove",  event => this.setTouchPos(event) );
+        this.canvas.addEventListener( "touchmove",  event => this.panGraph(event)    );
+        this.canvas.addEventListener( "touchend",   event => this.mouseup(event)     );
 
         // initial canvas resize, center canvas & draw
         this.resize();
@@ -103,6 +104,7 @@ class Graph {
 
         // set mouseclicked flag
         this.mouseClicked = true;
+        this.lastTouchPosOnCanvas = vec2.notANumber();
     }
 
     setMousePos(event) {
@@ -114,6 +116,21 @@ class Graph {
 
         // the mouse must be over the canvas so set that flag
         this.mouseOverCanvas = true;
+    }
+
+    setTouchPos(event) {
+
+        // handle touch events
+        this.mousePosOnCanvas.setxy(event.touches[0].pageX, event.touches[0].pageY).scaleBy( this.dpr );
+        this.mousePos.setv( this.canvasToGraph( this.mousePosOnCanvas ));
+
+        if( !vec2.isNaN(this.lastTouchPosOnCanvas) ) 
+            
+            this.mouseMove.setv( vec2.sub( this.mousePosOnCanvas, this.lastTouchPosOnCanvas )
+                                     .mulBy( this.canvasToGraphScale )
+                                     .scaleBy(1.3) );
+        
+        this.lastTouchPosOnCanvas.setv( this.mousePosOnCanvas );
     }
 
     panGraph(event) {

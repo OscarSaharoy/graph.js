@@ -62,6 +62,18 @@ class vec2 {
         return this;
     }
 
+    setIfGreater(vec) {
+        this.x = Math.max( this.x, vec.x );
+        this.y = Math.max( this.y, vec.y );
+        return this;
+    }
+
+    setIfLess(vec) {
+        this.x = Math.min( this.x, vec.x );
+        this.y = Math.min( this.y, vec.y );
+        return this;
+    }
+
     static clone(vec) {
         return new vec2(vec.x, vec.y);
     }
@@ -70,8 +82,20 @@ class vec2 {
         return new vec2( Math.cos(theta), Math.sin(theta) ).scaleBy( r );
     }
 
+    static zero() {
+        return new vec2( 0, 0 );
+    }
+
     static notANumber() {
         return new vec2( NaN, NaN );
+    }
+
+    static infinity() {
+        return new vec2( Infinity, Infinity );
+    }
+
+    static minusInfinity() {
+        return new vec2( -Infinity, -Infinity );
     }
 
     static isNaN(vec) {
