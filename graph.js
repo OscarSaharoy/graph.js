@@ -27,7 +27,7 @@ class Graph {
 
         // user-changeable drawing functions
         this.curveDrawingFunction = graphjsDefaultDrawCurve;
-        this.userFunction         = graph => {};
+        this.userDrawFunctions    = [];
 
         // functions to  translate from graph space to canvas space
         this.canvasToGraph  = point  => vec2.mul( point, this.canvasToGraphScale ).decBy( this.originOffset );
@@ -184,7 +184,9 @@ class Graph {
         this.curveDrawingFunction( pointsOnCanvas, this );
         this.drawLabels(gridlinePositions);
         this.drawMousePosition();
-        this.userFunction(this);
+
+        // call each of the user functions
+        this.userDrawFunctions.forEach( func => func(this) );
         
         // continue draw loop
         requestAnimationFrame( () => this.redraw() );
