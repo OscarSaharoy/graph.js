@@ -157,7 +157,7 @@ class Graph {
     mouseleave(event) {
 
         // unset the mouse over canvas flag
-        this.mouseOverCanvas = false;;
+        this.mouseOverCanvas = false;
 
         // treat mouseleave like a mouseup
         this.mouseup();
