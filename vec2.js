@@ -82,19 +82,19 @@ class vec2 {
         return new vec2( Math.cos(theta), Math.sin(theta) ).scaleBy( r );
     }
 
-    static zero() {
+    static get zero() {
         return new vec2( 0, 0 );
     }
 
-    static notANumber() {
+    static get notANumber() {
         return new vec2( NaN, NaN );
     }
 
-    static infinity() {
+    static get infinity() {
         return new vec2( Infinity, Infinity );
     }
 
-    static minusInfinity() {
+    static get minusInfinity() {
         return new vec2( -Infinity, -Infinity );
     }
 

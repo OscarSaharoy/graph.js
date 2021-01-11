@@ -9,14 +9,14 @@ class Graph {
         this.ctx    = this.canvas.getContext("2d");
 
         // declare properties
-        this.canvasSize           = new vec2(0, 0);
+        this.canvasSize           = vec2.zero;
         this.canvasToGraphScale   = new vec2(0.01, -0.01); // 2d scale factor that converts from canvas space to graph space
-        this.originOffset         = new vec2(0, 0); // offset of the origin from top corner of canvas in graph space
-        this.originFixedInCanvas  = new vec2(0, 0);
-        this.mousePos             = new vec2(0, 0);
-        this.mousePosOnCanvas     = new vec2(0, 0);
-        this.mouseMove            = new vec2(0, 0);
-        this.lastTouchPosOnCanvas = vec2.notANumber();
+        this.originOffset         = vec2.zero; // offset of the origin from top corner of canvas in graph space
+        this.originFixedInCanvas  = vec2.zero;
+        this.mousePos             = vec2.zero;
+        this.mousePosOnCanvas     = vec2.zero;
+        this.mouseMove            = vec2.zero;
+        this.lastTouchPosOnCanvas = vec2.notANumber;
         this.preventPanning       = false;
         this.mouseOverCanvas      = false;
         this.dpr                  = 0;
@@ -104,7 +104,7 @@ class Graph {
 
         // set mouseclicked flag
         this.mouseClicked = true;
-        this.lastTouchPosOnCanvas = vec2.notANumber();
+        this.lastTouchPosOnCanvas = vec2.notANumber;
     }
 
     setMousePos(event) {
