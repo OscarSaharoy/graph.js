@@ -130,8 +130,16 @@ class vec2 {
         return ( vecA.x - vecB.x ) ** 2 + ( vecA.y - vecB.y ) ** 2;
     }
 
+    static dist(vecA, vecB) {
+        return this.sqrDist(vecA, vecB) ** 0.5;
+    }
+
     static taxiDist(vecA, vecB) {
         return Math.abs( vecA.x - vecB.x ) + Math.abs( vecA.y - vecB.y ); 
+    }
+
+    static grad(vec) {
+        return vec.y / vec.x;
     }
 
     static lerp(vecA, vecB, d) {
