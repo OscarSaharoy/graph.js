@@ -17,6 +17,8 @@ class Graph {
         this.mousePosOnCanvas     = vec2.zero;
         this.mouseMove            = vec2.zero;
         this.lastTouchPosOnCanvas = vec2.notANumber;
+        this.pinchLength          = 0;
+        this.lastPinchLength      = null;
         this.preventPanning       = false;
         this.mouseOverCanvas      = false;
         this.dpr                  = 0;
@@ -49,16 +51,18 @@ class Graph {
 
         // event listeners
         window.addEventListener(      "resize",     event => this.resize(event)      );
+
         this.canvas.addEventListener( "wheel",      event => this.zoomGraph(event)   );
         this.canvas.addEventListener( "mouseup",    event => this.mouseup(event)     );
         this.canvas.addEventListener( "mousemove",  event => this.setMousePos(event) );
         this.canvas.addEventListener( "mousemove",  event => this.panGraph(event)    );
         this.canvas.addEventListener( "mousedown",  event => this.mousedown(event)   );
         this.canvas.addEventListener( "mouseleave", event => this.mouseleave(event)  );
-        this.canvas.addEventListener( "touchstart", event => this.mousedown(event)   );
+
+        this.canvas.addEventListener( "touchstart", event => this.touchstart(event)  );
         this.canvas.addEventListener( "touchmove",  event => this.setTouchPos(event) );
         this.canvas.addEventListener( "touchmove",  event => this.panGraph(event)    );
-        this.canvas.addEventListener( "touchend",   event => this.mouseup(event)     );
+        this.canvas.addEventListener( "touchend",   event => this.touchend(event)    );
 
         // initial canvas resize, center canvas & draw
         this.resize();
@@ -89,13 +93,13 @@ class Graph {
         if( !event.ctrlKey ) {
 
             // have to shift the origin to make the mouse the centre of enlargement
-            this.originOffset.x       += event.offsetX * this.dpr * zoomAmount * this.canvasToGraphScale.x;
+            this.originOffset.x       += this.mousePosOnCanvas.x * zoomAmount * this.canvasToGraphScale.x;
             this.canvasToGraphScale.x *= 1 + zoomAmount;
         }
 
         if( !event.shiftKey ) {
 
-            this.originOffset.y       += event.offsetY * this.dpr * zoomAmount * this.canvasToGraphScale.y;
+            this.originOffset.y       += this.mousePosOnCanvas.y * zoomAmount * this.canvasToGraphScale.y;
             this.canvasToGraphScale.y *= 1 + zoomAmount;
         }
     }
@@ -104,7 +108,6 @@ class Graph {
 
         // set mouseclicked flag
         this.mouseClicked = true;
-        this.lastTouchPosOnCanvas = vec2.notANumber;
     }
 
     setMousePos(event) {
@@ -116,21 +119,6 @@ class Graph {
 
         // the mouse must be over the canvas so set that flag
         this.mouseOverCanvas = true;
-    }
-
-    setTouchPos(event) {
-
-        // handle touch events
-        this.mousePosOnCanvas.setxy(event.touches[0].pageX, event.touches[0].pageY).scaleBy( this.dpr );
-        this.mousePos.setv( this.canvasToGraph( this.mousePosOnCanvas ));
-
-        if( !vec2.isNaN(this.lastTouchPosOnCanvas) ) 
-            
-            this.mouseMove.setv( vec2.sub( this.mousePosOnCanvas, this.lastTouchPosOnCanvas )
-                                     .mulBy( this.canvasToGraphScale )
-                                     .scaleBy(1.3) );
-        
-        this.lastTouchPosOnCanvas.setv( this.mousePosOnCanvas );
     }
 
     panGraph(event) {
@@ -152,6 +140,69 @@ class Graph {
 
         // update cursor
         this.canvas.style.cursor = "auto";
+    }
+
+    touchstart(event) {
+
+        // "mouse" is clicked
+        this.mouseClicked = true;
+
+        // unset the last touch and pinch length
+        this.lastTouchPosOnCanvas = vec2.notANumber;
+        this.lastPinchLength      = null;
+    }
+
+    setTouchPos(event) {
+
+        // prevent zooming from pinches by the browser
+        event.preventDefault();
+
+        // handle touch events
+        const meanTouchX = Array.from( event.touches ).reduce( (acc, touch) => acc + touch.pageX, 0 ) / event.touches.length;
+        const meanTouchY = Array.from( event.touches ).reduce( (acc, touch) => acc + touch.pageY, 0 ) / event.touches.length;
+
+        this.mousePosOnCanvas.setxy( meanTouchX, meanTouchY ).scaleBy( this.dpr );
+        this.mousePos.setv( this.canvasToGraph( this.mousePosOnCanvas ) );
+
+        // if lastTouchPosOnCanvas is nan then this is the first frame of the drag so there is no mouseMove to set yet
+        if( !vec2.isNaN(this.lastTouchPosOnCanvas) ) 
+            
+            this.mouseMove.setv( vec2.sub( this.mousePosOnCanvas, this.lastTouchPosOnCanvas )
+                                     .mulBy( this.canvasToGraphScale )
+                                     .scaleBy(1.3) );
+        
+        // lastTouchPosOnCanvas is used to calculate the mouseMove amount
+        this.lastTouchPosOnCanvas.setv( this.mousePosOnCanvas );
+
+        // only proceed if we have 2 touches
+        if( event.touches.length != 2 ) return;
+    
+        // distance between the 2 touches (css pixels)
+        this.pinchLength = ( (event.touches[0].pageX - event.touches[1].pageX) **2 
+                           + (event.touches[0].pageY - event.touches[1].pageY) **2 ) ** 0.5;
+
+        // if this.lastPinchLength is null then we only just started pinching so can't call zoomGraph
+        if( this.lastPinchLength ) {
+
+            event.deltaY  = ( this.lastPinchLength - this.pinchLength ) * 5;
+            this.zoomGraph(event);
+        }
+    
+        // set lastPinchLength so we can calculate the change in pinch length next frame
+        this.lastPinchLength = this.pinchLength;
+    }
+
+    touchend(event) {
+
+        this.mouseClicked = event.touches.length != 0;
+
+        // if the mouseClicked is still true then there are still some touches on the screen
+        // so we need to unset lastTouchPos and call setTouchPos to re adjust the mouse pos
+        // to the remaining finger
+        if( !this.mouseClicked ) return;
+
+        this.lastTouchPosOnCanvas = vec2.notANumber;
+        this.setTouchPos(event);
     }
 
     mouseleave(event) {
