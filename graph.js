@@ -9,6 +9,7 @@ class Graph {
         this.ctx    = this.canvas.getContext("2d");
 
         // declare properties
+        this.boundingRect         = null;
         this.canvasSize           = vec2.zero;
         this.canvasToGraphScale   = new vec2(0.01, -0.01); // 2d scale factor that converts from canvas space to graph space
         this.originOffset         = vec2.zero; // offset of the origin from top corner of canvas in graph space
@@ -74,8 +75,8 @@ class Graph {
 
         // set canvas to have 1:1 canvas pixel to screen pixel ratio
         this.dpr = window.devicePixelRatio || 1;
-        const rect = this.canvas.getBoundingClientRect();
-        this.canvasSize.setxy( rect.width * this.dpr, rect.height * this.dpr );
+        this.boundingRect = this.canvas.getBoundingClientRect();
+        this.canvasSize.setxy( this.boundingRect.width * this.dpr, this.boundingRect.height * this.dpr );
 
         this.canvas.width  = this.canvasSize.x;
         this.canvas.height = this.canvasSize.y;
@@ -158,8 +159,13 @@ class Graph {
         event.preventDefault();
 
         // handle touch events
-        const meanTouchX = Array.from( event.touches ).reduce( (acc, touch) => acc + touch.pageX, 0 ) / event.touches.length;
-        const meanTouchY = Array.from( event.touches ).reduce( (acc, touch) => acc + touch.pageY, 0 ) / event.touches.length;
+        var meanTouchX = Array.from( event.touches ).reduce( (acc, touch) => acc + touch.pageX, 0 ) / event.touches.length;
+        var meanTouchY = Array.from( event.touches ).reduce( (acc, touch) => acc + touch.pageY, 0 ) / event.touches.length;
+
+        meanTouchX -= this.boundingRect.left;
+        meanTouchY -= this.boundingRect.top;
+
+        console.log(this.boundingRect)
 
         this.mousePosOnCanvas.setxy( meanTouchX, meanTouchY ).scaleBy( this.dpr );
         this.mousePos.setv( this.canvasToGraph( this.mousePosOnCanvas ) );
