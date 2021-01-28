@@ -165,8 +165,6 @@ class Graph {
         meanTouchX -= this.boundingRect.left;
         meanTouchY -= this.boundingRect.top;
 
-        console.log(this.boundingRect)
-
         this.mousePosOnCanvas.setxy( meanTouchX, meanTouchY ).scaleBy( this.dpr );
         this.mousePos.setv( this.canvasToGraph( this.mousePosOnCanvas ) );
 
