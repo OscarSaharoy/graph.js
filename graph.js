@@ -1,3 +1,4 @@
+
 // Oscar Saharoy 2021
 
 class Graph {
@@ -8,25 +9,43 @@ class Graph {
         this.canvas = document.getElementById(graphID);
         this.ctx    = this.canvas.getContext("2d");
 
+        // need to set touch-action on the canvas for touch controls to work
+        this.canvas.style.touchAction = "none";
+
         // declare properties
         this.boundingRect         = null;
         this.canvasSize           = vec2.zero;
         this.canvasToGraphScale   = new vec2(0.01, -0.01); // 2d scale factor that converts from canvas space to graph space
         this.originOffset         = vec2.zero; // offset of the origin from top corner of canvas in graph space
         this.originFixedInCanvas  = vec2.zero;
-        this.mousePos             = vec2.zero;
-        this.mousePosOnCanvas     = vec2.zero;
-        this.mouseMove            = vec2.zero;
-        this.lastTouchPosOnCanvas = vec2.notANumber;
-        this.pinchLength          = 0;
-        this.lastPinchLength      = null;
+        this.mousePos             = vec2.zero; // position of the mouse hovering over the graph
         this.preventPanning       = false;
-        this.mouseOverCanvas      = false;
         this.dpr                  = 0;
-        this.rem                  = parseInt( getComputedStyle(document.documentElement).fontSize );
+        this.rem = parseInt( getComputedStyle(document.documentElement).fontSize )
+                 * window.devicePixelRatio || 1;
+        
+        // arrays of pointer positions and active pointers
+        this.activePointers   = [];
+        this.pointerPositions = {};
+
+        // mean pointer position and that of last frame
+        this.meanPointer     = vec2.zero;
+        this.lastMeanPointer = vec2.zero;
+
+        // spread of pointers and that of last frame
+        this.pointerSpread     = 0;
+        this.lastPointerSpread = 0;
+
+        // we need to keep a bool telling us to
+        // skip a zoom/pan frame when a new pointer is added
+        this.skip1Frame = false;
+
+        // get mean and spread of a list of pointer positions
+        this.getMeanPointer   = arr => arr.reduce( (acc, val) => acc.incBy( vec2.scale(val, 1/arr.length ) ), vec2.zero );
+        this.getPointerSpread = (positions, mean) => positions.reduce( (acc, val) => acc + ((val.x-mean.x)**2 + (val.y-mean.y)**2)**0.5, 0 );
  
         // data variables 
-        this.points               = [];
+        this.points = [];
 
         // user-changeable drawing functions
         this.curveDrawingFunction = graphjsDefaultDrawCurve;
@@ -50,25 +69,18 @@ class Graph {
                                          || i != 0            && this.insideViewport( arr[i-1] )
                                          || i != arr.length-1 && this.insideViewport( arr[i+1] );
 
-        // event listeners
-        window.addEventListener(      "resize",     event => this.resize(event)      );
-
-        this.canvas.addEventListener( "wheel",      event => this.zoomGraph(event)   );
-        this.canvas.addEventListener( "mouseup",    event => this.mouseup(event)     );
-        this.canvas.addEventListener( "mousemove",  event => this.setMousePos(event) );
-        this.canvas.addEventListener( "mousemove",  event => this.panGraph(event)    );
-        this.canvas.addEventListener( "mousedown",  event => this.mousedown(event)   );
-        this.canvas.addEventListener( "mouseleave", event => this.mouseleave(event)  );
-
-        this.canvas.addEventListener( "touchstart", event => this.touchstart(event)  );
-        this.canvas.addEventListener( "touchmove",  event => this.setTouchPos(event) );
-        this.canvas.addEventListener( "touchmove",  event => this.panGraph(event)    );
-        this.canvas.addEventListener( "touchend",   event => this.touchend(event)    );
-
         // initial canvas resize, center canvas & draw
         this.resize();
         this.setCentre( new vec2(0, 0) );
         this.redraw();
+
+        // link all the events to their callbacks
+        window.addEventListener(      "resize",      event => this.resize(      event ) );
+        this.canvas.addEventListener( "mousemove",   event => this.mousemove(   event ) );
+        this.canvas.addEventListener( "pointerdown", event => this.pointerdown( event ) );
+        this.canvas.addEventListener( "pointerup",   event => this.pointerup(   event ) );
+        this.canvas.addEventListener( "pointermove", event => this.pointermove( event ) );
+        this.canvas.addEventListener( "wheel",       event => this.wheel(       event ) );
     }
 
     resize() {
@@ -81,147 +93,114 @@ class Graph {
         this.canvas.width  = this.canvasSize.x;
         this.canvas.height = this.canvasSize.y;
     }
+    
+    mousemove( event ) {
+        
+        // set the mouse pos for the numbers in the top right
+        this.mousePos.setv( this.canvasToGraph( new vec2( event.offsetX * this.dpr, event.offsetY * this.dpr ) ) );
+    }
 
-    zoomGraph(event) {
+    pointerdown( event ) {
 
-        // zoom in and out on the graph
+        // if the event's target element is in the preventDrag array then return
+        //if( preventDrag.reduce( (result, elm) => result || elm == event.target, false) ) return;
+
+        // otherwise add the pointer to pointerPositions and activePointers
+        this.pointerPositions[event.pointerId] = new vec2(event.offsetX, event.offsetY);
+        this.activePointers.push( event.pointerId );
+        
+        // we added a new pointer so skip a frame to prevent
+        // a step change in pan position
+        this.skip1Frame = true;
+    }
+
+    pointermove( event ) {
 
         event.preventDefault();
 
-        const zoomAmount = event.deltaY / 1000;
+        // if this pointer isn't an active pointer
+        // (pointerdown occured over a preventDrag element)
+        // then do nothing
+        if( !this.activePointers.includes(event.pointerId) ) return;
+
+        // keep track of the pointer pos
+        this.pointerPositions[event.pointerId] = new vec2(event.offsetX, event.offsetY);
+    }
+
+    pointerup( event ) {
+
+        // remove the pointer from active pointers and pointerPositions
+        // (does nothing if it wasnt in them)
+        this.activePointers = this.activePointers.filter( id => id != event.pointerId );
+        delete this.pointerPositions[event.pointerId];
+
+        // we lost a pointer so skip a frame to prevent
+        // a step change in pan position
+        this.skip1Frame = true;
+    }
+
+    panAndZoom() {
+
+        // if we are preventing panning or theres no active pointers do nothing
+        if( this.preventPanning || !this.activePointers.length ) return;
+
+        // get the mean pointer and spread
+        const pointers     = Object.values( this.pointerPositions );
+        this.meanPointer   = this.getMeanPointer( pointers );
+        this.pointerSpread = this.getPointerSpread( pointers, this.meanPointer );
+        
+        // get the mean pointer in graph space
+        this.meanPointerOnGraph = this.canvasToGraph( this.meanPointer );
+        
+        // we have to skip a frame when we change number of
+        // pointers to avoid a jump
+        if( !this.skip1Frame ) {
+            
+            // increment the originOffset by the mean pointer movement, scaled to graph space
+            this.originOffset.incBy( vec2.sub( this.meanPointer, this.lastMeanPointer ).mulBy( this.canvasToGraphScale ) );
+            
+            // call the wheel function with a constructed event to zoom with pinch
+            this.wheel( { offsetX: this.meanPointer.x,
+                          offsetY: this.meanPointer.y,                
+                          deltaY: (this.lastPointerSpread - this.pointerSpread) * 2.7 } );
+        }
+
+        // update the vars to prepare for the next frame
+        this.lastMeanPointer.setv( this.meanPointer );
+        this.lastPointerSpread = this.pointerSpread;
+        this.skip1Frame        = false;
+    }
+
+    wheel( event ) {
+
+        // prevent browser from doing anything
+        event.preventDefault?.();
+
+        // adjust the zoom level and update the container
+        const zoomAmount = event.deltaY / 600;
 
         // use ctrl and shift keys to decide whether to zoom in x or y directions or both
         if( !event.ctrlKey ) {
 
             // have to shift the origin to make the mouse the centre of enlargement
-            this.originOffset.x       += this.mousePosOnCanvas.x * zoomAmount * this.canvasToGraphScale.x;
+            this.originOffset.x       += event.offsetX * this.dpr * zoomAmount * this.canvasToGraphScale.x;
             this.canvasToGraphScale.x *= 1 + zoomAmount;
         }
 
         if( !event.shiftKey ) {
 
-            this.originOffset.y       += this.mousePosOnCanvas.y * zoomAmount * this.canvasToGraphScale.y;
+            this.originOffset.y       += event.offsetY * this.dpr * zoomAmount * this.canvasToGraphScale.y;
             this.canvasToGraphScale.y *= 1 + zoomAmount;
         }
-    }
-
-    mousedown(event) {
-
-        // set mouseclicked flag
-        this.mouseClicked = true;
-    }
-
-    setMousePos(event) {
-
-        // get mousePos for display at top of graph and close data point, and mouseMove for panning graph
-        this.mousePosOnCanvas.setxy(event.offsetX, event.offsetY).scaleBy( this.dpr );
-        this.mousePos.setv( this.canvasToGraph( this.mousePosOnCanvas ));
-        this.mouseMove.setxy( event.movementX, event.movementY ).mulBy( this.canvasToGraphScale );
-
-        // the mouse must be over the canvas so set that flag
-        this.mouseOverCanvas = true;
-    }
-
-    panGraph(event) {
-
-        // only act if the mouse is clicked and prevent panning is false
-        if( !this.mouseClicked || this.preventPanning ) return;
-
-        // set cursor to little hand grabbing
-        this.canvas.style.cursor = "grabbing";
-
-        // shift origin to pan graph
-        this.originOffset.incBy( this.mouseMove );
-    }
-
-    mouseup(event) {
-
-        // set mouseClicked flag
-        this.mouseClicked = false;
-
-        // update cursor
-        this.canvas.style.cursor = "auto";
-    }
-
-    touchstart(event) {
-
-        // "mouse" is clicked
-        this.mouseClicked = true;
-
-        // unset the last touch and pinch length
-        this.lastTouchPosOnCanvas = vec2.notANumber;
-        this.lastPinchLength      = null;
-    }
-
-    setTouchPos(event) {
-
-        // prevent zooming from pinches by the browser
-        event.preventDefault();
-
-        // handle touch events
-        var meanTouchX = Array.from( event.touches ).reduce( (acc, touch) => acc + touch.pageX, 0 ) / event.touches.length;
-        var meanTouchY = Array.from( event.touches ).reduce( (acc, touch) => acc + touch.pageY, 0 ) / event.touches.length;
-
-        meanTouchX -= this.boundingRect.left;
-        meanTouchY -= this.boundingRect.top;
-
-        this.mousePosOnCanvas.setxy( meanTouchX, meanTouchY ).scaleBy( this.dpr );
-        this.mousePos.setv( this.canvasToGraph( this.mousePosOnCanvas ) );
-
-        // if lastTouchPosOnCanvas is nan then this is the first frame of the drag so there is no mouseMove to set yet
-        if( !vec2.isNaN(this.lastTouchPosOnCanvas) ) 
-            
-            this.mouseMove.setv( vec2.sub( this.mousePosOnCanvas, this.lastTouchPosOnCanvas )
-                                     .mulBy( this.canvasToGraphScale )
-                                     .scaleBy(1.3) );
-        
-        // lastTouchPosOnCanvas is used to calculate the mouseMove amount
-        this.lastTouchPosOnCanvas.setv( this.mousePosOnCanvas );
-
-        // only proceed if we have 2 touches
-        if( event.touches.length != 2 ) return;
-    
-        // distance between the 2 touches (css pixels)
-        this.pinchLength = ( (event.touches[0].pageX - event.touches[1].pageX) **2 
-                           + (event.touches[0].pageY - event.touches[1].pageY) **2 ) ** 0.5;
-
-        // if this.lastPinchLength is null then we only just started pinching so can't call zoomGraph
-        if( this.lastPinchLength ) {
-
-            event.deltaY  = ( this.lastPinchLength - this.pinchLength ) * 5;
-            this.zoomGraph(event);
-        }
-    
-        // set lastPinchLength so we can calculate the change in pinch length next frame
-        this.lastPinchLength = this.pinchLength;
-    }
-
-    touchend(event) {
-
-        this.mouseClicked = event.touches.length != 0;
-
-        // if the mouseClicked is still true then there are still some touches on the screen
-        // so we need to unset lastTouchPos and call setTouchPos to re adjust the mouse pos
-        // to the remaining finger
-        if( !this.mouseClicked ) return;
-
-        this.lastTouchPosOnCanvas = vec2.notANumber;
-        this.setTouchPos(event);
-    }
-
-    mouseleave(event) {
-
-        // unset the mouse over canvas flag
-        this.mouseOverCanvas = false;
-
-        // treat mouseleave like a mouseup
-        this.mouseup();
     }
 
     redraw() {
 
         // clear canvas
         this.ctx.clearRect(0, 0, this.canvasSize.x, this.canvasSize.y);
+        
+        // run pan and zoom function
+        this.panAndZoom();
 
         // set origin position fixed inside the canvas
         this.originFixedInCanvas.setv( 
@@ -274,7 +253,7 @@ class Graph {
             gridlines.x.push(x);
 
         for(var y = firstGridlineY; y < firstGridlineY + graphSize.y + gridlineSpacingY; y += gridlineSpacingY)
-            gridlines.y.push(y);
+            if( Math.abs(y) > 1e-9 ) gridlines.y.push(y);
 
         return gridlines;
     }
@@ -304,7 +283,7 @@ class Graph {
 
         // change style for labels
         this.ctx.fillStyle = "black";
-        this.ctx.font      = "500 1rem Roboto Mono";
+        this.ctx.font      = `500 ${this.rem}px Roboto Mono`;
 
         gridlinePositions.x.forEach( x => this.drawXLabel( x ) );
         gridlinePositions.y.forEach( y => this.drawYLabel( y ) );
@@ -312,7 +291,7 @@ class Graph {
 
     drawMousePosition() {
 
-        this.ctx.font = "500 1.3rem Roboto Mono";
+        this.ctx.font = `500 ${this.rem*1.2}px Roboto Mono`;
 
         // get text from mousePos
         const text = this.mousePos.x.toPrecision(3) + ", " + this.mousePos.y.toPrecision(3);
@@ -368,7 +347,7 @@ class Graph {
 
         // draw number
         const text       = graphjsFormatNumber(graphY);
-        const textHeight = this.rem;
+        const textHeight = this.rem * this.dpr;
         const textWidth  = this.ctx.measureText( text ).width;
         const textX      = canvasX+textHeight+textWidth > this.canvasSize.x ? this.canvasSize.x-textHeight/2-textWidth : canvasX+textHeight/2;
         const textY      = canvasY - textHeight / 2;
@@ -474,7 +453,7 @@ function graphjsFormatNumber(x) {
     // fix numbers like 57.5699999999995e+12
     const ninesRegexMatch = text.match( /(9|\.|\-){4,}(\d)*/ );
 
-    if(ninesRegexMatch) {
+    if( ninesRegexMatch ) {
 
         var incrementPower = false;
 
@@ -485,7 +464,7 @@ function graphjsFormatNumber(x) {
             incrementPower = true;
         }
 
-        else{
+        else {
             
             // extract correct part of string (except digit to be incremented)
             fixed = text.substring(0, ninesRegexMatch.index-1);
@@ -497,7 +476,7 @@ function graphjsFormatNumber(x) {
         // match suffix of the form e+xxx and add it back on
         const suffix = text.match( /e(\+|\-)(\d+)/ );
         
-        if(suffix) {
+        if( suffix ) {
 
             var power = parseInt( suffix[2] )
 
@@ -512,7 +491,7 @@ function graphjsFormatNumber(x) {
     // fix numbers like 5.560000000001e-5
     const zerosRegexMatch = text.match( /(0|\.){5,}(\d)+/ );
 
-    if(zerosRegexMatch) {
+    if( zerosRegexMatch ) {
 
         // extract correct part of string
         fixed = text.substring(0, zerosRegexMatch.index);
@@ -527,3 +506,4 @@ function graphjsFormatNumber(x) {
 
     return text;
 }
+
