@@ -19,6 +19,7 @@ class Graph {
         this.originOffset         = vec2.zero; // offset of the origin from top corner of canvas in graph space
         this.originFixedInCanvas  = vec2.zero;
         this.mousePos             = vec2.zero; // position of the mouse hovering over the graph
+        this.mousePosOnCanvas     = vec2.zero; // position of the mouse hovering over the graph
         this.preventPanning       = false;
         this.dpr                  = 0;
         this.rem = parseInt( getComputedStyle(document.documentElement).fontSize )
@@ -97,7 +98,12 @@ class Graph {
     mousemove( event ) {
         
         // set the mouse pos for the numbers in the top right
+        this.mousePosOnCanvas.setv( new vec2( event.offsetX * this.dpr, event.offsetY * this.dpr ) );
         this.mousePos.setv( this.canvasToGraph( new vec2( event.offsetX * this.dpr, event.offsetY * this.dpr ) ) );
+    }
+
+    get mouseClicked() {
+        return !!this.activePointers.length;
     }
 
     pointerdown( event ) {
